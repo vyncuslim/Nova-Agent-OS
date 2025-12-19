@@ -9,10 +9,10 @@ import { AGENTS } from './constants';
 import { geminiService } from './services/geminiService';
 import { translations } from './translations';
 
-const STORAGE_KEY = 'nova_chat_v2_6';
-const SETTINGS_KEY = 'nova_settings_v2_6';
-const AGENT_KEY = 'nova_agent_v2_6';
-const AUTH_KEY = 'nova_auth_v2_6';
+const STORAGE_KEY = 'nova_chat_v2_6_strict';
+const SETTINGS_KEY = 'nova_settings_v2_6_strict';
+const AGENT_KEY = 'nova_agent_v2_6_strict';
+const AUTH_KEY = 'nova_auth_v2_6_strict';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -89,11 +89,24 @@ const App: React.FC = () => {
     }
   }, [messages, currentAgent, user, globalSettings, modelSettings]);
 
+  const getCurrentApiKey = () => {
+    const provider = modelSettings.coreProvider;
+    if (provider === 'GEMINI') return globalSettings.externalKeys.gemini;
+    if (provider === 'CLAUDE') return globalSettings.externalKeys.claude;
+    if (provider === 'GPT') return globalSettings.externalKeys.openai;
+    if (provider === 'DEEPSEEK') return globalSettings.externalKeys.deepseek;
+    if (provider === 'GROK') return globalSettings.externalKeys.grok;
+    return undefined;
+  };
+
   const speakText = async (text: string) => {
     if (isSpeaking) return;
+    const apiKey = getCurrentApiKey();
+    if (!apiKey) return;
+
     setIsSpeaking(true);
     try {
-      const { audioBuffer, audioCtx } = await geminiService.generateSpeech(text, modelSettings.voiceName);
+      const { audioBuffer, audioCtx } = await geminiService.generateSpeech(text, apiKey, modelSettings.voiceName);
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(audioCtx.destination);
@@ -105,6 +118,18 @@ const App: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string, image?: string) => {
+    const apiKey = getCurrentApiKey();
+    
+    if (!apiKey || apiKey.trim() === "") {
+      const errorMsg = modelSettings.language === 'ZH' 
+        ? "错误：未检测到上行链路密钥。请前往设置配置 API 密钥。" 
+        : "ERROR: No uplink key detected. Please configure API key in settings.";
+      
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content, image, timestamp: Date.now() }]);
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: errorMsg, timestamp: Date.now() }]);
+      return;
+    }
+
     const userMessage: Message = { id: Date.now().toString(), role: 'user', content, image, timestamp: Date.now() };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
@@ -123,7 +148,7 @@ const App: React.FC = () => {
       }
 
       const response = await geminiService.chat(
-        activeAgent, content, history, modelSettings, globalSettings.memories, image, userLocation
+        activeAgent, content, history, modelSettings, globalSettings.memories, apiKey, image, userLocation
       );
 
       const assistantMessage: Message = {
@@ -139,9 +164,20 @@ const App: React.FC = () => {
       if (modelSettings.autoRead && response.text) {
         speakText(response.text);
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Neural Link Error:", error);
+      let errorDetail = modelSettings.language === 'ZH' 
+        ? "神经同步失败。密钥可能无效或已过期。" 
+        : "Neural synchronization failed. Key might be invalid or expired.";
+      
+      if (error.message?.includes("API_KEY_INVALID") || error.status === 401 || error.status === 403) {
+        errorDetail = modelSettings.language === 'ZH' 
+          ? "验证拒绝：API 密钥无效。请检查设置中的输入。" 
+          : "AUTHENTICATION REFUSED: Invalid API key. Check your settings.";
+      }
+
       setMessages(prev => [...prev, {
-        id: Date.now().toString(), role: 'assistant', content: modelSettings.language === 'ZH' ? "神经同步失败。请检查 API 密钥。" : "Neural synchronization failed. Please verify API keys.", timestamp: Date.now()
+        id: Date.now().toString(), role: 'assistant', content: errorDetail, timestamp: Date.now()
       }]);
     } finally {
       setIsLoading(false);

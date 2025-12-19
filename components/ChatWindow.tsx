@@ -62,6 +62,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onSpeak, i
                 <img src={msg.image} alt="Neural Asset" className="w-full h-auto object-cover max-h-[500px]" />
               </div>
             )}
+
+            {msg.video && (
+              <div className="mb-4 rounded-2xl overflow-hidden border border-white/5 shadow-inner bg-black">
+                <video src={msg.video} controls className="w-full h-auto max-h-[500px]" autoPlay loop muted />
+              </div>
+            )}
             
             <p className="whitespace-pre-wrap leading-relaxed text-sm tracking-wide">
               {msg.content}
@@ -117,13 +123,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onSpeak, i
 
       {isLoading && (
         <div className="flex justify-start animate-in fade-in slide-in-from-left-2">
-          <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-3xl rounded-tl-none p-5 shadow-2xl flex items-center gap-4">
-            <div className="flex gap-1.5">
-              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce shadow-[0_0_8px_rgba(99,102,241,0.5)]" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce shadow-[0_0_8px_rgba(99,102,241,0.5)]" style={{ animationDelay: '200ms' }}></div>
-              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce shadow-[0_0_8px_rgba(99,102,241,0.5)]" style={{ animationDelay: '400ms' }}></div>
-            </div>
-            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Neural Synthesis</span>
+          <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-3xl rounded-tl-none p-5 shadow-2xl flex flex-col gap-3 min-w-[200px]">
+             <div className="flex items-center gap-4">
+                <div className="flex gap-1.5">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></div>
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '400ms' }}></div>
+                </div>
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Neural Synthesis</span>
+             </div>
+             {messages[messages.length-1]?.role === 'user' && messages[messages.length-1].content.length > 20 && (
+               <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                 <div className="h-full bg-indigo-600 animate-pulse w-2/3"></div>
+               </div>
+             )}
           </div>
         </div>
       )}

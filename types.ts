@@ -4,7 +4,8 @@ export enum AgentRole {
   RESEARCHER = 'RESEARCHER',
   CREATIVE = 'CREATIVE',
   GUIDE = 'GUIDE',
-  CODER = 'CODER'
+  CODER = 'CODER',
+  VIDEO = 'VIDEO'
 }
 
 export type InferenceMode = 'STANDARD' | 'PRECISION' | 'TURBO';
@@ -40,6 +41,7 @@ export interface Message {
   content: string;
   timestamp: number;
   image?: string;
+  video?: string;
   groundingLinks?: GroundingLink[];
   isThinking?: boolean;
 }

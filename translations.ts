@@ -1,8 +1,8 @@
 
 export const translations = {
   EN: {
-    app_name: "Nova OS",
-    neural_gateway: "Neural Gateway v2.6",
+    app_name: "Nova OS Platinum",
+    neural_gateway: "Neural Gateway v3.0",
     tab_agents: "Agents",
     tab_memory: "Memory",
     tab_settings: "Settings",
@@ -38,11 +38,14 @@ export const translations = {
     handshake: "Handshake",
     sync_dialog: "Sync Dialog",
     offline: "Offline",
-    ready: "Ready"
+    ready: "Ready",
+    video_generating: "Synthesizing Video Frame... This may take a few minutes.",
+    live_mode: "Live Session",
+    stop_live: "Terminate Link"
   },
   ZH: {
-    app_name: "星云系统 (Nova OS)",
-    neural_gateway: "神经网关 v2.6",
+    app_name: "星云系统 白金版",
+    neural_gateway: "神经网关 v3.0",
     tab_agents: "智能体",
     tab_memory: "记忆库",
     tab_settings: "设置",
@@ -78,6 +81,9 @@ export const translations = {
     handshake: "握手协议",
     sync_dialog: "同步对话框",
     offline: "离线",
-    ready: "就绪"
+    ready: "就绪",
+    video_generating: "正在合成视频帧... 这可能需要几分钟时间。",
+    live_mode: "实时对话",
+    stop_live: "终止链接"
   }
 };

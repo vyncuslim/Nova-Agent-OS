@@ -17,7 +17,15 @@ export const AGENTS: AgentConfig[] = [
     icon: '🔍',
     model: 'gemini-3-pro-preview',
     tools: ['googleSearch'],
-    systemInstruction: 'You are Insight Explorer, an expert researcher. Use Google Search to provide up-to-date, cited information. Always prioritize factual accuracy and depth.'
+    systemInstruction: 'You are Insight Explorer, an expert researcher. Use Google Search to provide up-to-date, cited information.'
+  },
+  {
+    id: AgentRole.VIDEO,
+    name: 'Motion Architect',
+    description: 'High-fidelity video generation via Veo.',
+    icon: '🎬',
+    model: 'veo-3.1-fast-generate-preview',
+    systemInstruction: 'You are Motion Architect, a specialist in AI cinematography. Help users refine their prompts for video generation.'
   },
   {
     id: AgentRole.GUIDE,
@@ -26,7 +34,7 @@ export const AGENTS: AgentConfig[] = [
     icon: '📍',
     model: 'gemini-flash-lite-latest',
     tools: ['googleMaps', 'googleSearch'],
-    systemInstruction: 'You are Geo Scout, a local guide and navigation expert. Use Google Maps and Search to help users find places, restaurants, and directions based on their current or specified location.'
+    systemInstruction: 'You are Geo Scout, a local guide and navigation expert.'
   },
   {
     id: AgentRole.CREATIVE,
@@ -34,7 +42,7 @@ export const AGENTS: AgentConfig[] = [
     description: 'Creative mind for images and ideas.',
     icon: '🎨',
     model: 'gemini-2.5-flash-image',
-    systemInstruction: 'You are Visionary, a creative AI agent. You specialize in generating artistic ideas and visual descriptions. When asked to generate an image, do so with high detail.'
+    systemInstruction: 'You are Visionary, a creative AI agent specializing in high-detail images.'
   },
   {
     id: AgentRole.CODER,
@@ -42,9 +50,9 @@ export const AGENTS: AgentConfig[] = [
     description: 'Advanced logical reasoning and coding.',
     icon: '💻',
     model: 'gemini-3-pro-preview',
-    systemInstruction: 'You are Syntax Master, a world-class software engineer. Provide robust, clean, and well-documented code. Solve complex logical puzzles and explain architectural decisions.'
+    systemInstruction: 'You are Syntax Master, a world-class software engineer. Provide robust and clean code.'
   }
 ];
 
 export const VALID_INVITE_CODE = "NOVA-2025";
-export const INITIAL_WELCOME = "Access granted. Welcome to Nova Agent OS. I am ready to assist you.";
+export const INITIAL_WELCOME = "Access granted. Welcome to Nova Agent OS v3.0 Platinum.";
