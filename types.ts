@@ -12,6 +12,7 @@ export type InferenceMode = 'STANDARD' | 'PRECISION' | 'TURBO';
 export type UIDensity = 'COMPACT' | 'SPACIOUS';
 export type Language = 'EN' | 'ZH';
 export type CoreProvider = 'GEMINI' | 'CLAUDE' | 'GPT' | 'DEEPSEEK' | 'GROK';
+export type ImageSize = '1K' | '2K' | '4K';
 
 export interface ExternalKeys {
   openai?: string;
@@ -37,13 +38,15 @@ export interface GroundingLink {
 
 export interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
   image?: string;
   video?: string;
   groundingLinks?: GroundingLink[];
   isThinking?: boolean;
+  isConfirmingImage?: boolean;
+  transcription?: string;
 }
 
 export interface ModelSettings {
@@ -57,7 +60,10 @@ export interface ModelSettings {
   uiDensity: UIDensity;
   language: Language;
   coreProvider: CoreProvider;
-  customModelOverride?: string;
+  customModelOverrides: Record<string, string>;
+  imageSize: ImageSize;
+  useSearch: boolean;
+  useMaps: boolean;
 }
 
 export interface GlobalSettings {

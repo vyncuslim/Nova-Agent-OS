@@ -2,7 +2,7 @@
 export const translations = {
   EN: {
     app_name: "Nova OS Platinum",
-    neural_gateway: "Neural Gateway v3.0",
+    neural_gateway: "Neural Gateway v3.2",
     tab_agents: "Agents",
     tab_memory: "Memory",
     tab_settings: "Settings",
@@ -41,11 +41,26 @@ export const translations = {
     ready: "Ready",
     video_generating: "Synthesizing Video Frame... This may take a few minutes.",
     live_mode: "Live Session",
-    stop_live: "Terminate Link"
+    stop_live: "Terminate Link",
+    confirm_gen: "Confirm Generation",
+    cancel: "Cancel",
+    image_request_title: "Neural Visualization Request",
+    image_request_desc: "Confirm execution of high-fidelity visual synthesis for the following prompt:",
+    agent_model_override: "Model Overrides",
+    volume: "Volume",
+    stop: "Stop",
+    manifest: "Feature Manifest",
+    image_size: "Image Output Resolution",
+    grounding_tools: "Grounding Enhancement",
+    use_search: "Google Search Data",
+    use_maps: "Google Maps Navigation",
+    live_api: "Live Real-Time Audio",
+    start_live: "Initiate Live Link",
+    live_desc: "Speak freely. The neural core is listening in real-time."
   },
   ZH: {
     app_name: "星云系统 白金版",
-    neural_gateway: "神经网关 v3.0",
+    neural_gateway: "神经网关 v3.2",
     tab_agents: "智能体",
     tab_memory: "记忆库",
     tab_settings: "设置",
@@ -84,6 +99,21 @@ export const translations = {
     ready: "就绪",
     video_generating: "正在合成视频帧... 这可能需要几分钟时间。",
     live_mode: "实时对话",
-    stop_live: "终止链接"
+    stop_live: "终止链接",
+    confirm_gen: "核准生成",
+    cancel: "取消",
+    image_request_title: "神经可视化请求",
+    image_request_desc: "请核准以下提示词的高保真视觉合成任务：",
+    agent_model_override: "模型重写配置",
+    volume: "音量",
+    stop: "停止",
+    manifest: "核心功能清单",
+    image_size: "图像输出分辨率",
+    grounding_tools: "溯源增强",
+    use_search: "Google 搜索数据",
+    use_maps: "Google 地图导航",
+    live_api: "实时音频对话",
+    start_live: "启动实时链路",
+    live_desc: "请自由发言。神经核心正在实时聆听。"
   }
 };
