@@ -39,7 +39,14 @@ const App: React.FC = () => {
     const savedSettings = localStorage.getItem(SETTINGS_KEY);
     const savedAgentId = localStorage.getItem(AGENT_KEY);
     
-    if (savedUser) setUser(JSON.parse(savedUser));
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser);
+      setUser(parsedUser);
+      if (parsedUser.keys) {
+        setGlobalSettings(prev => ({ ...prev, externalKeys: parsedUser.keys }));
+      }
+    }
+    
     if (savedMessages) setMessages(JSON.parse(savedMessages));
     if (savedSettings) {
       const s = JSON.parse(savedSettings);
@@ -79,6 +86,8 @@ const App: React.FC = () => {
         parts: [{ text: msg.content }]
       }));
 
+      // In a real implementation, you'd switch services based on agent.model
+      // For now, we use Gemini as the primary orchestrator.
       const response = await geminiService.chat(
         currentAgent, content, history, modelSettings, globalSettings.memories, image, userLocation
       );
@@ -90,14 +99,17 @@ const App: React.FC = () => {
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       setMessages(prev => [...prev, {
-        id: Date.now().toString(), role: 'assistant', content: "Neural synchronization failed. Retrying logic might be needed.", timestamp: Date.now()
+        id: Date.now().toString(), role: 'assistant', content: "Neural synchronization failed. Please check your API keys and connectivity.", timestamp: Date.now()
       }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!user) return <AuthGate onAuthorized={setUser} />;
+  if (!user) return <AuthGate onAuthorized={(u) => {
+    setUser(u);
+    setGlobalSettings(prev => ({ ...prev, externalKeys: u.keys }));
+  }} />;
 
   return (
     <div className="flex h-screen bg-[#020617] text-slate-100 overflow-hidden font-sans">

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { VALID_INVITE_CODE } from '../constants';
-import { User } from '../types';
+import { User, ExternalKeys } from '../types';
 
 declare const google: any;
 declare const window: any;
@@ -11,13 +11,21 @@ interface AuthGateProps {
 }
 
 const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
-  // 1: Vault Sync, 2: Handshake, 3: Identity Sync, 4: Finalize
+  // 1: Handshake (Invite), 2: Vault (API Keys), 3: Identity (Google), 4: Finalize
   const [stage, setStage] = useState<1 | 2 | 3 | 4>(1);
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [googleUser, setGoogleUser] = useState<Partial<User> | null>(null);
   const [gsiStatus, setGsiStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const googleBtnContainerRef = useRef<HTMLDivElement>(null);
+  
+  // External Keys State
+  const [keys, setKeys] = useState<ExternalKeys>({
+    openai: '',
+    grok: '',
+    deepseek: '',
+    claude: ''
+  });
 
   const decodeJwt = (token: string) => {
     try {
@@ -34,15 +42,6 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
   };
 
   useEffect(() => {
-    if (stage === 1) {
-      const checkKey = async () => {
-        if (window.aistudio && await window.aistudio.hasSelectedApiKey()) {
-          setStage(2);
-        }
-      };
-      checkKey();
-    }
-
     if (stage === 3) {
       let checkInterval = setInterval(() => {
         if (typeof google !== 'undefined') {
@@ -56,7 +55,8 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
                 setStage(4);
               }
             },
-            use_fedcm_for_prompt: true,
+            // CRITICAL: Set to false to fix FedCM feature-policy error in document
+            use_fedcm_for_prompt: false,
             context: 'signin'
           });
           if (googleBtnContainerRef.current) {
@@ -65,27 +65,25 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
             });
             setGsiStatus('ready');
           }
-          google.accounts.id.prompt();
+          // Only prompt if we explicitly need it, but renderButton is safer
         }
       }, 100);
       return () => clearInterval(checkInterval);
     }
   }, [stage]);
 
-  const handleOpenVault = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      // Proceed to handshake immediately after triggering dialog as per race condition rules
-      setStage(2);
-    }
-  };
-
-  const handleStage2 = () => {
+  const handleStage1 = () => {
     if (inviteCode.trim().toUpperCase() === VALID_INVITE_CODE) {
-      setStage(3);
+      setStage(2);
       setError('');
     } else {
       setError('INVALID HANDSHAKE TOKEN');
+    }
+  };
+
+  const handleGeminiSync = async () => {
+    if (window.aistudio) {
+      await window.aistudio.openSelectKey();
     }
   };
 
@@ -94,8 +92,13 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
       name: googleUser?.name || 'Authorized Guest',
       email: googleUser?.email,
       avatar: googleUser?.avatar,
-      isGoogleUser: !!googleUser
+      isGoogleUser: !!googleUser,
+      keys: keys
     });
+  };
+
+  const updateKey = (field: keyof ExternalKeys, value: string) => {
+    setKeys(prev => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -105,85 +108,113 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-600/10 blur-[150px] rounded-full"></div>
       </div>
 
-      <div className="relative w-full max-w-md mx-4">
-        <div className="bg-slate-900/60 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 shadow-2xl">
+      <div className="relative w-full max-w-lg mx-4">
+        <div className="bg-slate-900/80 backdrop-blur-3xl border border-white/5 rounded-[3rem] p-10 shadow-2xl transition-all duration-500">
           
           <div className="flex flex-col items-center text-center">
-            <div className="mb-8 relative group">
-              <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-blue-700 rounded-3xl flex items-center justify-center text-4xl shadow-2xl shadow-indigo-500/20 transition-transform group-hover:scale-110">
-                {stage === 1 ? '🛡️' : stage === 2 ? '🔑' : stage === 3 ? '🧬' : '🔗'}
+            <div className="mb-6 relative">
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-blue-700 rounded-2xl flex items-center justify-center text-3xl shadow-2xl shadow-indigo-500/20">
+                {stage === 1 ? '✨' : stage === 2 ? '🛡️' : stage === 3 ? '🧬' : '🚀'}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-slate-900 animate-pulse"></div>
+              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-900 animate-pulse"></div>
             </div>
 
-            <h1 className="text-3xl font-black tracking-tighter text-white mb-1 italic">NOVA OS</h1>
-            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] mb-10">
-              Stage {stage}: {stage === 1 ? 'Vault Synchronization' : stage === 2 ? 'Neural Handshake' : stage === 3 ? 'Identity Sync' : 'Final Protocol'}
+            <h1 className="text-2xl font-black tracking-tighter text-white mb-1">NOVA AGENT OS</h1>
+            <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.4em] mb-8">
+              Protocol Stage {stage}: {
+                stage === 1 ? 'Neural Handshake' : 
+                stage === 2 ? 'Neural Vault Initialization' : 
+                stage === 3 ? 'Identity Verification' : 'Establishing Link'
+              }
             </p>
 
-            <div className="w-full space-y-8 min-h-[240px] flex flex-col justify-center">
+            <div className="w-full space-y-6 min-h-[300px] flex flex-col justify-center">
               {stage === 1 && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                  <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
-                    <p className="text-[11px] text-slate-400 leading-relaxed mb-4 italic text-left">
-                      To initialize this AI interface, you must provide your own Gemini API Key. This key is used exclusively for your local sessions.
-                    </p>
-                    <button 
-                      onClick={handleOpenVault} 
-                      className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-3"
-                    >
-                      <span>SYNC NEURAL VAULT</span>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    </button>
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-slate-500 font-bold uppercase tracking-widest block text-left px-1">Access Token</label>
+                    <input
+                      type="text" value={inviteCode}
+                      onChange={(e) => { setInviteCode(e.target.value.toUpperCase()); setError(''); }}
+                      placeholder="NOVA-XXXX"
+                      className={`w-full bg-slate-950/50 border ${error ? 'border-red-500/50' : 'border-slate-800 focus:border-indigo-500'} rounded-2xl py-4 px-6 text-center text-white font-mono tracking-[0.3em] outline-none transition-all text-sm`}
+                    />
+                    {error && <p className="text-red-500 text-[10px] font-black uppercase mt-2">{error}</p>}
                   </div>
-                  <a 
-                    href="https://ai.google.dev/gemini-api/docs/billing" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-[9px] text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-widest underline decoration-2 underline-offset-4"
-                  >
-                    Billing Documentation & Setup
-                  </a>
+                  <button onClick={handleStage1} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 active:scale-95 transition-all">Initiate Protocol</button>
+                  <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Master Key: {VALID_INVITE_CODE}</p>
                 </div>
               )}
 
               {stage === 2 && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                  <input
-                    type="text" value={inviteCode}
-                    onChange={(e) => { setInviteCode(e.target.value.toUpperCase()); setError(''); }}
-                    placeholder="ENTER ACCESS KEY"
-                    className={`w-full bg-slate-950/50 border ${error ? 'border-red-500/50' : 'border-slate-800 focus:border-indigo-500'} rounded-2xl py-4 px-5 text-center text-white font-mono tracking-[0.4em] outline-none transition-all`}
-                  />
-                  {error && <p className="text-red-500 text-[10px] font-black uppercase">{error}</p>}
-                  <button onClick={handleStage2} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-500 shadow-xl shadow-indigo-600/20">Verify Protocol</button>
-                  <p className="text-[10px] text-slate-600 font-bold">SYSTEM BYPASS: {VALID_INVITE_CODE}</p>
+                <div className="space-y-4 animate-in fade-in zoom-in-95 max-h-[450px] overflow-y-auto px-1 custom-scrollbar">
+                  <div className="grid grid-cols-1 gap-4 text-left">
+                    <div className="space-y-3">
+                      <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-indigo-300">Google Gemini API</p>
+                          <p className="text-[9px] text-slate-500 uppercase tracking-tighter">Core Model Uplink</p>
+                        </div>
+                        <button 
+                          onClick={handleGeminiSync}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-colors"
+                        >
+                          Sync Key
+                        </button>
+                      </div>
+
+                      {[
+                        { label: 'GPT (OpenAI)', field: 'openai' },
+                        { label: 'Grok (xAI)', field: 'grok' },
+                        { label: 'DeepSeek', field: 'deepseek' },
+                        { label: 'Claude (Anthropic)', field: 'claude' },
+                      ].map((item) => (
+                        <div key={item.field} className="space-y-1">
+                          <label className="text-[9px] text-slate-500 font-bold uppercase ml-1">{item.label}</label>
+                          <input 
+                            type="password"
+                            placeholder="sk-..."
+                            value={(keys as any)[item.field]}
+                            onChange={(e) => updateKey(item.field as any, e.target.value)}
+                            className="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-indigo-200 outline-none focus:border-indigo-500/50 font-mono"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={() => setStage(3)} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-700 transition-all mt-4">Save & Continue</button>
                 </div>
               )}
 
               {stage === 3 && (
                 <div className="space-y-6 animate-in fade-in zoom-in-95">
-                  <div ref={googleBtnContainerRef} className="flex justify-center transition-opacity duration-1000"></div>
-                  {gsiStatus === 'loading' && <div className="text-[10px] text-slate-600 animate-pulse font-bold uppercase">Connecting Identity Provider...</div>}
-                  <button onClick={() => setStage(4)} className="text-[10px] text-indigo-400/50 hover:text-indigo-400 font-bold uppercase transition-colors">Skip for Guest Access</button>
+                  <div className="p-6 bg-slate-800/40 rounded-[2rem] border border-slate-700/50 flex flex-col items-center gap-6">
+                    <div ref={googleBtnContainerRef} className="flex justify-center"></div>
+                    {gsiStatus === 'loading' && <div className="text-[10px] text-slate-600 animate-pulse font-black uppercase">Synchronizing Neural ID...</div>}
+                    <div className="h-px w-1/2 bg-slate-800"></div>
+                    <button onClick={() => setStage(4)} className="text-[10px] text-indigo-400/50 hover:text-indigo-400 font-black uppercase transition-colors tracking-widest">Bypass to Guest Session</button>
+                  </div>
                 </div>
               )}
 
               {stage === 4 && (
                 <div className="space-y-6 animate-in fade-in zoom-in-95">
-                   <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-center gap-4">
-                      <img src={googleUser?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'} className="w-12 h-12 rounded-xl" alt="P" />
-                      <div className="text-left flex-1">
-                        <p className="text-sm font-bold">{googleUser?.name || 'Guest Explorer'}</p>
-                        <p className="text-[10px] text-slate-500 font-mono italic">{googleUser?.email || 'unverified_identity'}</p>
+                   <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center gap-4">
+                      <div className="relative">
+                        <img src={googleUser?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=NovaGuest'} className="w-20 h-20 rounded-3xl border-2 border-emerald-500/50" alt="Avatar" />
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-slate-900 flex items-center justify-center text-[10px]">✓</div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-lg font-black text-white">{googleUser?.name || 'Guest Explorer'}</p>
+                        <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">{googleUser?.email || 'OFFLINE_MODE'}</p>
                       </div>
                    </div>
-                   <button onClick={handleFinalize} className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.3em] hover:bg-emerald-500 shadow-xl shadow-emerald-600/20">Establish Secure Link</button>
+                   <button onClick={handleFinalize} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.4em] hover:bg-emerald-500 shadow-2xl shadow-emerald-600/20 active:scale-95 transition-all">Establish Neural Link</button>
                 </div>
               )}
             </div>
 
-            <div className="mt-12 opacity-20 text-[8px] font-black uppercase tracking-[0.6em]">Neural-AES-256-GCM Secure</div>
+            <div className="mt-10 opacity-30 text-[8px] font-black uppercase tracking-[0.6em]">AES-256-V3 Encrypted Neural Gateway</div>
           </div>
         </div>
       </div>

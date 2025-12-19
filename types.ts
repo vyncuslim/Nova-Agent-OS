@@ -7,11 +7,19 @@ export enum AgentRole {
   CODER = 'CODER'
 }
 
+export interface ExternalKeys {
+  openai?: string;
+  grok?: string;
+  deepseek?: string;
+  claude?: string;
+}
+
 export interface User {
   name: string;
   email?: string;
   avatar?: string;
   isGoogleUser: boolean;
+  keys: ExternalKeys;
 }
 
 export interface GroundingLink {
@@ -37,11 +45,7 @@ export interface ModelSettings {
 
 export interface GlobalSettings {
   memories: string[];
-  externalKeys: {
-    openai?: string;
-    deepseek?: string;
-    grok?: string;
-  };
+  externalKeys: ExternalKeys;
 }
 
 export interface AgentConfig {
