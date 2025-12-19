@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { VALID_INVITE_CODE } from '../constants';
 import { User } from '../types';
 
-// Declare google as a global variable to satisfy TypeScript for Google Identity Services
+// Declare google as a global variable
 declare const google: any;
 
 interface AuthGateProps {
@@ -14,9 +14,9 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [googleUser, setGoogleUser] = useState<Partial<User> | null>(null);
+  const [isGoogleScriptLoaded, setIsGoogleScriptLoaded] = useState(false);
   const googleBtnContainerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to decode Google JWT ID Token
   const decodeJwt = (token: string) => {
     try {
       const base64Url = token.split('.')[1];
@@ -35,11 +35,13 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
   };
 
   useEffect(() => {
-    // Initialize Google Identity Services
+    let retryCount = 0;
+    const maxRetries = 50; // 5 seconds max
+
     const initializeGoogleSignIn = () => {
       if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+        setIsGoogleScriptLoaded(true);
         google.accounts.id.initialize({
-          // Note: In a production app, replace with your actual Client ID from Google Cloud Console
           client_id: "1061324330236-96b797l60h3e7e23m9n0a2b4e5f6g7h8.apps.googleusercontent.com", 
           callback: (response: any) => {
             const payload = decodeJwt(response.credential);
@@ -65,8 +67,8 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
             width: 320
           });
         }
-      } else {
-        // Retry if script not loaded yet
+      } else if (retryCount < maxRetries) {
+        retryCount++;
         setTimeout(initializeGoogleSignIn, 100);
       }
     };
@@ -109,7 +111,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
 
         <h1 className="text-4xl font-extrabold tracking-tight text-white mb-3">Nova Agent OS</h1>
         <p className="text-slate-400 text-sm mb-10 leading-relaxed px-4">
-          真正的 Google 登录已就绪。请登录并输入邀请码。
+          请输入授权码以访问神经接口。Google 登录为可选步骤。
         </p>
 
         <div className="w-full space-y-8">
@@ -136,8 +138,14 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center min-h-[50px] w-full">
-                <div ref={googleBtnContainerRef} className="transform scale-110"></div>
-                <p className="mt-3 text-[10px] text-slate-500 font-medium">Use your real Google Account</p>
+                {!isGoogleScriptLoaded ? (
+                  <div className="w-full h-11 bg-slate-800/50 rounded-full animate-pulse flex items-center justify-center">
+                    <span className="text-xs text-slate-600 font-medium italic">Loading Auth SDK...</span>
+                  </div>
+                ) : (
+                  <div ref={googleBtnContainerRef} className="transform scale-110"></div>
+                )}
+                <p className="mt-3 text-[10px] text-slate-500 font-medium">Use your real Google Account (Optional)</p>
               </div>
             )}
           </div>
