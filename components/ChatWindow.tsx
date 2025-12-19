@@ -1,15 +1,18 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Message } from '../types';
+import { Message, Language } from '../types';
+import { translations } from '../translations';
 
 interface ChatWindowProps {
   messages: Message[];
   isLoading: boolean;
   onSpeak: (text: string) => void;
   isSpeaking: boolean;
+  language: Language;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onSpeak, isSpeaking }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onSpeak, isSpeaking, language }) => {
+  const t = translations[language];
   const scrollRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -31,8 +34,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onSpeak, i
         <div className="h-full flex flex-col items-center justify-center text-center opacity-50 space-y-4 animate-in fade-in zoom-in-95 duration-700">
           <div className="w-20 h-20 bg-slate-800/50 rounded-[2rem] flex items-center justify-center text-4xl shadow-2xl ring-1 ring-white/5">🤖</div>
           <div className="space-y-1">
-            <h3 className="text-xl font-black uppercase tracking-tighter">Neural Link Established</h3>
-            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em] max-w-xs mx-auto">Select a persona or relay a command to initiate protocol.</p>
+            <h3 className="text-xl font-black uppercase tracking-tighter">{t.link_established}</h3>
+            <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-[0.2em] max-w-xs mx-auto">{t.link_desc}</p>
           </div>
         </div>
       )}
@@ -70,14 +73,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onSpeak, i
                   onClick={() => handleCopy(msg.content, msg.id)}
                   className="px-3 py-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-all flex items-center gap-1.5 text-[9px] uppercase font-black tracking-widest border border-transparent hover:border-slate-700"
                 >
-                  {copiedId === msg.id ? '✨ Copied' : '📋 Copy'}
+                  {copiedId === msg.id ? `✨ ${t.copied}` : `📋 ${t.copy}`}
                 </button>
                 <button 
                   onClick={() => onSpeak(msg.content)}
                   disabled={isSpeaking}
                   className={`px-3 py-1.5 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-slate-400 hover:text-white transition-all flex items-center gap-1.5 text-[9px] uppercase font-black tracking-widest border border-transparent hover:border-slate-700 ${isSpeaking ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  {isSpeaking ? '🔊 Speaking...' : '🎙️ Listen'}
+                  {isSpeaking ? `🔊 ${t.speaking}` : `🎙️ ${t.listening}`}
                 </button>
               </div>
             )}
@@ -86,7 +89,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ messages, isLoading, onSpeak, i
               <div className="mt-4 pt-3 border-t border-slate-800 space-y-2">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                   <span className="w-1 h-1 bg-indigo-500 rounded-full"></span>
-                  Neural Grounding
+                  {t.grounding}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {msg.groundingLinks.map((link, idx) => (

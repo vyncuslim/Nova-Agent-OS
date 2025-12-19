@@ -25,7 +25,8 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
     openai: '',
     grok: '',
     deepseek: '',
-    claude: ''
+    claude: '',
+    codex: ''
   });
 
   const decodeJwt = (token: string) => {
@@ -183,9 +184,10 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
 
                       {[
                         { label: 'GPT (OpenAI)', field: 'openai' },
+                        { label: 'Claude (Anthropic)', field: 'claude' },
+                        { label: 'CodeX / Specialized', field: 'codex' },
                         { label: 'Grok (xAI)', field: 'grok' },
                         { label: 'DeepSeek', field: 'deepseek' },
-                        { label: 'Claude (Anthropic)', field: 'claude' },
                       ].map((item) => (
                         <div key={item.field} className="space-y-1">
                           <label className="text-[9px] text-slate-500 font-bold uppercase ml-1">{item.label}</label>

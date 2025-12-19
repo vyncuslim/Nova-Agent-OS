@@ -1,12 +1,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { Language } from '../types';
+import { translations } from '../translations';
 
 interface InputAreaProps {
   onSendMessage: (content: string, image?: string) => void;
   isLoading: boolean;
+  language: Language;
 }
 
-const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, isLoading }) => {
+const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, isLoading, language }) => {
+  const t = translations[language];
   const [input, setInput] = useState('');
   const [image, setImage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -19,7 +23,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, isLoading }) => {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.lang = language === 'ZH' ? 'zh-CN' : 'en-US';
 
       recognitionRef.current.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
@@ -30,7 +34,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, isLoading }) => {
       recognitionRef.current.onerror = () => setIsRecording(false);
       recognitionRef.current.onend = () => setIsRecording(false);
     }
-  }, []);
+  }, [language]);
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -110,7 +114,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, isLoading }) => {
                 handleSubmit();
               }
             }}
-            placeholder="Relay command..."
+            placeholder={t.relay_command}
             className="flex-1 bg-transparent border-none focus:ring-0 text-slate-200 resize-none py-2.5 px-2 max-h-48 text-sm placeholder:text-slate-600 font-medium"
             rows={1}
           />
@@ -133,7 +137,7 @@ const InputArea: React.FC<InputAreaProps> = ({ onSendMessage, isLoading }) => {
           </button>
         </div>
         <p className="mt-2 text-[9px] text-center text-slate-600 font-black uppercase tracking-widest">
-          Nova Intelligence Gateway • {isRecording ? 'Capturing Audio...' : 'Secure Link Established'}
+          {t.neural_gateway} • {isRecording ? t.capturing_audio : t.secure_link}
         </p>
       </form>
     </div>

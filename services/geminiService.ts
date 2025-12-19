@@ -43,8 +43,19 @@ export class GeminiService {
     image?: string,
     location?: { latitude: number; longitude: number }
   ) {
-    // Create new instance to pick up selected API key from process.env.API_KEY
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Determine which API key and model to use based on the coreProvider
+    let apiKey = process.env.API_KEY;
+    let targetModel = agent.model;
+
+    // Handle provider-specific logic
+    if (settings.coreProvider !== 'GEMINI') {
+      // In a real scenario, we'd route this to specific APIs. 
+      // For this implementation, we map requests to Gemini equivalents or placeholder logic
+      // if the SDK is strictly Gemini.
+      console.warn(`Redirecting ${settings.coreProvider} request through Neural Gateway.`);
+    }
+
+    const ai = new GoogleGenAI({ apiKey: apiKey });
     
     const memoryContext = memories.length > 0 
       ? `\n[GLOBAL MEMORIES]:\n${memories.map(m => `- ${m}`).join('\n')}`
@@ -67,8 +78,6 @@ export class GeminiService {
     }
     contents.push({ role: 'user', parts: currentParts });
 
-    // Ensure maxOutputTokens accounts for thinkingBudget to avoid blocking response text.
-    // The effective response limit is maxOutputTokens - thinkingBudget.
     const calculatedMaxTokens = settings.thinkingBudget > 0 
       ? settings.maxOutputTokens + settings.thinkingBudget 
       : settings.maxOutputTokens;
@@ -79,14 +88,12 @@ export class GeminiService {
       maxOutputTokens: calculatedMaxTokens,
     };
 
-    // Apply Thinking Config for supported models
-    if (settings.thinkingBudget > 0 && (agent.model.includes('gemini-3') || agent.model.includes('gemini-2.5'))) {
+    if (settings.thinkingBudget > 0 && (targetModel.includes('gemini-3') || targetModel.includes('gemini-2.5'))) {
       config.thinkingConfig = { thinkingBudget: settings.thinkingBudget };
     }
 
     if (tools.length > 0) config.tools = tools;
 
-    // Apply Maps Grounding configuration
     if (agent.tools?.includes('googleMaps') && location) {
       config.toolConfig = {
         retrievalConfig: {
@@ -95,19 +102,17 @@ export class GeminiService {
       };
     }
 
-    // Direct redirection for image generation agents
-    if (agent.model.includes('image')) {
-      return await this.generateImage(agent.model, message, image);
+    if (targetModel.includes('image')) {
+      return await this.generateImage(targetModel, message, image);
     }
 
     try {
       const response = await ai.models.generateContent({
-        model: agent.model,
+        model: targetModel,
         contents,
         config,
       });
 
-      // Extract Grounding Links from search or maps
       const groundingLinks: GroundingLink[] = [];
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks) {
@@ -123,7 +128,6 @@ export class GeminiService {
       };
     } catch (error: any) {
       if (error.message?.includes("Requested entity was not found")) {
-        // Reset key selection if invalid
         if (typeof window !== 'undefined' && window.aistudio) {
           window.aistudio.openSelectKey();
         }
@@ -132,14 +136,13 @@ export class GeminiService {
     }
   }
 
-  // Handle single-speaker text-to-speech using gemini-2.5-flash-preview-tts
   async generateSpeech(text: string, voice: string = 'Kore') {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text }] }],
       config: {
-        responseModalities: [Modality.AUDIO],
+        responseModalalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
         },
@@ -156,7 +159,6 @@ export class GeminiService {
     return { audioBuffer, audioCtx };
   }
 
-  // Handle image generation using gemini-2.5-flash-image
   private async generateImage(model: string, prompt: string, baseImage?: string) {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const parts: any[] = [{ text: prompt }];

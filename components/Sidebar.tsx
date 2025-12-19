@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { AgentConfig, User, GlobalSettings, ModelSettings, ExternalKeys, InferenceMode, UIDensity } from '../types';
+import { AgentConfig, User, GlobalSettings, ModelSettings, ExternalKeys, InferenceMode, UIDensity, Language, CoreProvider } from '../types';
 import { AGENTS } from '../constants';
+import { translations } from '../translations';
 
 declare const window: any;
 
@@ -22,6 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentAgent, onSelectAgent, isMobileOpen, onCloseMobile, user, onLogout,
   globalSettings, modelSettings, onUpdateGlobal, onUpdateModel
 }) => {
+  const t = translations[modelSettings.language];
   const [activeTab, setActiveTab] = useState<'agents' | 'memory' | 'settings'>('agents');
   const [newMemory, setNewMemory] = useState('');
 
@@ -45,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const clearSystemCache = () => {
-    if (confirm("DANGER: This will purge all memories and local settings. Continue?")) {
+    if (confirm(t.purge_confirm)) {
       localStorage.clear();
       window.location.reload();
     }
@@ -58,6 +60,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const voices = ['Kore', 'Puck', 'Charon', 'Zephyr', 'Fenrir'];
+  const providers: { id: keyof ExternalKeys; label: string; placeholder: string; color: string }[] = [
+    { id: 'openai', label: 'GPT (OpenAI)', placeholder: 'sk-proj-...', color: 'text-emerald-400' },
+    { id: 'claude', label: 'Claude (Anthropic)', placeholder: 'sk-ant-api03-...', color: 'text-orange-400' },
+    { id: 'codex', label: 'CodeX / Specialized', placeholder: 'cx-neural-...', color: 'text-blue-400' },
+    { id: 'deepseek', label: 'DeepSeek', placeholder: 'sk-...', color: 'text-cyan-400' },
+    { id: 'grok', label: 'Grok (xAI)', placeholder: 'xai-...', color: 'text-indigo-400' },
+  ];
+
+  const coreProviders: CoreProvider[] = ['GEMINI', 'CLAUDE', 'GPT', 'DEEPSEEK', 'GROK'];
 
   return (
     <div className={`
@@ -70,17 +81,17 @@ const Sidebar: React.FC<SidebarProps> = ({
             🚀
           </div>
           <div>
-            <h1 className="font-bold text-lg tracking-tight text-white">Nova OS</h1>
-            <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">Neural v2.5.4</p>
+            <h1 className="font-bold text-lg tracking-tight text-white">{t.app_name}</h1>
+            <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">{t.neural_gateway}</p>
           </div>
         </div>
       </div>
 
       <div className="flex bg-slate-900/40">
         {[
-          { id: 'agents', label: 'Agents', icon: '🤖' },
-          { id: 'memory', label: 'Memory', icon: '🧠' },
-          { id: 'settings', label: 'Settings', icon: '⚙️' }
+          { id: 'agents', label: t.tab_agents, icon: '🤖' },
+          { id: 'memory', label: t.tab_memory, icon: '🧠' },
+          { id: 'settings', label: t.tab_settings, icon: '⚙️' }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -97,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-y-auto p-4 custom-scrollbar bg-[#050811]">
         {activeTab === 'agents' && (
           <div className="space-y-2 animate-in fade-in slide-in-from-left-4 duration-300">
-            <p className="px-2 pb-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">Available Personas</p>
+            <p className="px-2 pb-2 text-[9px] font-black text-slate-600 uppercase tracking-widest">{t.available_personas}</p>
             {AGENTS.map((agent) => (
               <button
                 key={agent.id}
@@ -124,7 +135,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-200">
             <div className="p-4 bg-indigo-500/5 rounded-xl border border-indigo-500/10">
               <p className="text-[10px] text-slate-400 leading-relaxed mb-4 italic">
-                Persistent context injected into all neural links.
+                {t.memory_desc}
               </p>
               <div className="flex gap-2">
                 <input 
@@ -132,14 +143,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                   value={newMemory}
                   onChange={(e) => setNewMemory(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addMemory()}
-                  placeholder="Neural imprint..."
+                  placeholder={t.neural_imprint}
                   className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] text-indigo-100 outline-none focus:border-indigo-500/50"
                 />
                 <button onClick={addMemory} className="bg-indigo-600 hover:bg-indigo-500 px-4 rounded-lg text-white font-bold transition-colors">+</button>
               </div>
             </div>
             <div className="space-y-2">
-              <p className="px-1 text-[9px] font-black text-slate-600 uppercase tracking-widest">Active Imprints</p>
+              <p className="px-1 text-[9px] font-black text-slate-600 uppercase tracking-widest">{t.active_imprints}</p>
               {globalSettings.memories.length === 0 ? (
                 <p className="text-[10px] text-slate-700 italic text-center py-8">Memory bank empty.</p>
               ) : (
@@ -156,14 +167,61 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
 
-        {activeTab === 'settings' && (activeTab === 'settings') && (
+        {activeTab === 'settings' && (
           <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300 pb-4">
             
+            {/* Language Switcher */}
+            <section className="space-y-4">
+              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                {t.settings_language}
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 px-0.5">
+                {(['EN', 'ZH'] as Language[]).map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => onUpdateModel({ ...modelSettings, language: lang })}
+                    className={`py-2 text-[10px] font-black rounded-lg border transition-all ${
+                      modelSettings.language === lang 
+                        ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400' 
+                        : 'bg-slate-900 border-slate-800 text-slate-600 hover:text-slate-400'
+                    }`}
+                  >
+                    {lang === 'EN' ? 'English' : '华文 / 中文'}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {/* Core Provider Switcher */}
+            <section className="space-y-4">
+              <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-rose-500 rounded-full shadow-[0_0_5px_rgba(244,63,94,1)]"></span>
+                {t.settings_core}
+              </p>
+              <div className="grid grid-cols-3 gap-1.5 px-0.5">
+                {coreProviders.map((prov) => (
+                  <button
+                    key={prov}
+                    onClick={() => onUpdateModel({ ...modelSettings, coreProvider: prov })}
+                    className={`py-2 text-[9px] font-black rounded-lg border transition-all truncate px-1 ${
+                      modelSettings.coreProvider === prov 
+                        ? 'bg-rose-500/20 border-rose-500/50 text-rose-400' 
+                        : 'bg-slate-900 border-slate-800 text-slate-600 hover:text-slate-400'
+                    }`}
+                  >
+                    {prov}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[8px] text-slate-600 italic px-1">Note: Non-Gemini providers require an external Neural Uplink key to function.</p>
+            </section>
+
             {/* Inference Mode */}
             <section className="space-y-4">
               <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full shadow-[0_0_5px_rgba(99,102,241,1)]"></span>
-                Inference Engine Mode
+                {t.settings_inference}
               </p>
               <div className="grid grid-cols-3 gap-1.5 px-0.5">
                 {(['STANDARD', 'PRECISION', 'TURBO'] as InferenceMode[]).map((mode) => (
@@ -186,11 +244,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             <section className="space-y-4">
               <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-violet-500 rounded-full shadow-[0_0_5px_rgba(139,92,246,1)]"></span>
-                Audio Synthesis
+                {t.settings_audio}
               </p>
               <div className="space-y-3 px-1">
                 <div className="flex items-center justify-between bg-slate-900/50 p-2 rounded-xl border border-slate-800">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Auto-Read Responses</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase">{t.settings_auto_read}</label>
                   <button 
                     onClick={() => onUpdateModel({...modelSettings, autoRead: !modelSettings.autoRead})}
                     className={`w-10 h-5 rounded-full relative transition-all ${modelSettings.autoRead ? 'bg-indigo-600' : 'bg-slate-800'}`}
@@ -200,7 +258,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-600 uppercase tracking-tighter ml-1">Voice Profile</label>
+                  <label className="text-[9px] font-black text-slate-600 uppercase tracking-tighter ml-1">{t.settings_voice}</label>
                   <div className="flex flex-wrap gap-1.5">
                     {voices.map(v => (
                       <button
@@ -224,7 +282,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <section className="space-y-4">
               <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_5px_rgba(16,185,129,1)]"></span>
-                System Interface
+                {t.settings_ui}
               </p>
               <div className="space-y-4 px-1">
                 <div className="flex items-center gap-1.5">
@@ -245,7 +303,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 <div className="space-y-2">
                   <div className="flex justify-between items-end">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Context Depth</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase">{t.settings_context}</label>
                     <span className="text-emerald-400 font-mono text-[10px] bg-emerald-500/10 px-1.5 rounded">{modelSettings.historyDepth} msgs</span>
                   </div>
                   <input 
@@ -258,39 +316,20 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </section>
 
-            {/* Parameters */}
-            <section className="space-y-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-slate-500 rounded-full"></span>
-                Hyperparameters
-              </p>
-              <div className="space-y-4 px-1">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-end">
-                    <label className="text-[10px] font-black text-slate-500 uppercase">Temperature</label>
-                    <span className="text-slate-300 font-mono text-[10px] bg-slate-800 px-1.5 rounded">{modelSettings.temperature}</span>
-                  </div>
-                  <input 
-                    type="range" min="0" max="2" step="0.1" 
-                    value={modelSettings.temperature}
-                    onChange={(e) => onUpdateModel({...modelSettings, temperature: parseFloat(e.target.value)})}
-                    className="w-full accent-slate-500 bg-slate-900 h-1 rounded-full appearance-none cursor-pointer"
-                  />
-                </div>
-              </div>
-            </section>
-
-            {/* Neural Uplinks */}
+            {/* Neural Uplinks (API Keys) */}
             <section className="space-y-4">
               <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full"></span>
-                Neural Uplinks
+                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full shadow-[0_0_5px_rgba(249,115,22,1)]"></span>
+                {t.settings_uplinks}
               </p>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center px-1">
-                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Gemini (Google)</label>
-                    <button onClick={handleGeminiSync} className="text-[8px] font-black uppercase px-2 py-0.5 rounded-sm bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">Handshake</button>
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-tighter flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                      Gemini (Google)
+                    </label>
+                    <button onClick={handleGeminiSync} className="text-[8px] font-black uppercase px-2 py-0.5 rounded-sm bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all">{t.sync_dialog}</button>
                   </div>
                   <input 
                     type="password"
@@ -300,15 +339,36 @@ const Sidebar: React.FC<SidebarProps> = ({
                     className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-indigo-200 outline-none focus:border-indigo-500/50 font-mono transition-all"
                   />
                 </div>
+
+                {providers.map((p) => (
+                  <div key={p.id} className="space-y-1.5">
+                    <div className="flex justify-between items-center px-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-tighter flex items-center gap-2">
+                        <span className={`w-1.5 h-1.5 rounded-full ${p.color.replace('text', 'bg')}`}></span>
+                        {p.label}
+                      </label>
+                      <span className={`text-[8px] font-black uppercase px-1.5 rounded-sm ${globalSettings.externalKeys[p.id] ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-600'}`}>
+                        {globalSettings.externalKeys[p.id] ? t.ready : t.offline}
+                      </span>
+                    </div>
+                    <input 
+                      type="password"
+                      placeholder={p.placeholder}
+                      value={globalSettings.externalKeys[p.id] || ''}
+                      onChange={(e) => updateExternalKey(p.id, e.target.value)}
+                      className="w-full bg-slate-950/60 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 outline-none focus:border-indigo-500/50 font-mono transition-all"
+                    />
+                  </div>
+                ))}
               </div>
             </section>
 
             <section className="pt-4 border-t border-slate-800">
               <button 
                 onClick={clearSystemCache}
-                className="w-full py-3 px-4 bg-red-500/5 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-red-500/10 transition-all"
+                className="w-full py-3 px-4 bg-red-500/5 border border-red-500/20 rounded-xl text-red-500 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-red-500/10 transition-all flex items-center justify-center gap-2"
               >
-                Purge Neural Cache
+                {t.settings_purge}
               </button>
             </section>
           </div>
@@ -321,7 +381,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <img src={user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Nova'} className="w-9 h-9 rounded-xl border border-slate-700" alt="Avatar" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-white truncate">{user.name}</p>
-              <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest">Linked</p>
+              <p className="text-[9px] text-slate-500 font-medium uppercase tracking-widest">{t.identity_active}</p>
             </div>
             <button onClick={onLogout} className="p-2 hover:bg-red-500/10 hover:text-red-400 rounded-xl transition-all text-slate-600">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>

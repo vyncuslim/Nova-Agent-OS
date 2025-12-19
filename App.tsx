@@ -7,11 +7,12 @@ import AuthGate from './components/AuthGate';
 import { AgentConfig, Message, User, GlobalSettings, ModelSettings } from './types';
 import { AGENTS } from './constants';
 import { geminiService } from './services/geminiService';
+import { translations } from './translations';
 
-const STORAGE_KEY = 'nova_chat_v2_5';
-const SETTINGS_KEY = 'nova_settings_v2_5';
-const AGENT_KEY = 'nova_agent_v2_5';
-const AUTH_KEY = 'nova_auth_v2_5';
+const STORAGE_KEY = 'nova_chat_v2_6';
+const SETTINGS_KEY = 'nova_settings_v2_6';
+const AGENT_KEY = 'nova_agent_v2_6';
+const AUTH_KEY = 'nova_auth_v2_6';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -43,9 +44,13 @@ const App: React.FC = () => {
       voiceName: 'Kore',
       autoRead: false,
       historyDepth: 12,
-      uiDensity: 'SPACIOUS'
+      uiDensity: 'SPACIOUS',
+      language: 'EN',
+      coreProvider: 'GEMINI'
     };
   });
+
+  const t = translations[modelSettings.language];
 
   // INITIAL LOAD
   useEffect(() => {
@@ -136,7 +141,7 @@ const App: React.FC = () => {
       }
     } catch (error) {
       setMessages(prev => [...prev, {
-        id: Date.now().toString(), role: 'assistant', content: "Neural synchronization failed. Please verify API keys.", timestamp: Date.now()
+        id: Date.now().toString(), role: 'assistant', content: modelSettings.language === 'ZH' ? "神经同步失败。请检查 API 密钥。" : "Neural synchronization failed. Please verify API keys.", timestamp: Date.now()
       }]);
     } finally {
       setIsLoading(false);
@@ -166,12 +171,12 @@ const App: React.FC = () => {
               <div className="flex flex-col -space-y-1">
                 <h2 className="font-black text-xs uppercase tracking-wider">{currentAgent.name}</h2>
                 <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">
-                  {modelSettings.inferenceMode} • {currentAgent.model}
+                  {modelSettings.coreProvider} • {modelSettings.inferenceMode}
                 </span>
               </div>
             </div>
           </div>
-          <button onClick={() => { if(confirm("Purge history?")) setMessages([]); }} className="p-2 text-slate-600 hover:text-red-400 transition-colors">
+          <button onClick={() => { if(confirm(t.purge_history)) setMessages([]); }} className="p-2 text-slate-600 hover:text-red-400 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
           </button>
         </header>
@@ -180,9 +185,14 @@ const App: React.FC = () => {
           messages={messages} isLoading={isLoading} 
           onSpeak={speakText} 
           isSpeaking={isSpeaking}
+          language={modelSettings.language}
         />
         
-        <InputArea onSendMessage={handleSendMessage} isLoading={isLoading} />
+        <InputArea 
+          onSendMessage={handleSendMessage} 
+          isLoading={isLoading} 
+          language={modelSettings.language}
+        />
       </main>
 
       {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}

@@ -9,6 +9,8 @@ export enum AgentRole {
 
 export type InferenceMode = 'STANDARD' | 'PRECISION' | 'TURBO';
 export type UIDensity = 'COMPACT' | 'SPACIOUS';
+export type Language = 'EN' | 'ZH';
+export type CoreProvider = 'GEMINI' | 'CLAUDE' | 'GPT' | 'DEEPSEEK' | 'GROK';
 
 export interface ExternalKeys {
   openai?: string;
@@ -16,6 +18,7 @@ export interface ExternalKeys {
   deepseek?: string;
   claude?: string;
   gemini?: string;
+  codex?: string;
 }
 
 export interface User {
@@ -50,6 +53,9 @@ export interface ModelSettings {
   autoRead: boolean;
   historyDepth: number;
   uiDensity: UIDensity;
+  language: Language;
+  coreProvider: CoreProvider;
+  customModelOverride?: string;
 }
 
 export interface GlobalSettings {
