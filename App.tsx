@@ -22,37 +22,45 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | undefined>();
 
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
-    memories: [],
-    externalKeys: {}
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(() => {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (saved) {
+      try { return JSON.parse(saved).global; } catch (e) { /* fallback */ }
+    }
+    return { memories: [], externalKeys: {} };
   });
 
-  const [modelSettings, setModelSettings] = useState<ModelSettings>({
-    temperature: 1.0,
-    thinkingBudget: 0,
-    maxOutputTokens: 2048
+  const [modelSettings, setModelSettings] = useState<ModelSettings>(() => {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (saved) {
+      try { return JSON.parse(saved).model; } catch (e) { /* fallback */ }
+    }
+    return { 
+      temperature: 1.0, 
+      thinkingBudget: 0, 
+      maxOutputTokens: 2048, 
+      inferenceMode: 'STANDARD',
+      voiceName: 'Kore',
+      autoRead: false,
+      historyDepth: 12,
+      uiDensity: 'SPACIOUS'
+    };
   });
 
+  // INITIAL LOAD
   useEffect(() => {
     const savedUser = localStorage.getItem(AUTH_KEY);
     const savedMessages = localStorage.getItem(STORAGE_KEY);
-    const savedSettings = localStorage.getItem(SETTINGS_KEY);
     const savedAgentId = localStorage.getItem(AGENT_KEY);
     
     if (savedUser) {
-      const parsedUser = JSON.parse(savedUser);
-      setUser(parsedUser);
-      if (parsedUser.keys) {
-        setGlobalSettings(prev => ({ ...prev, externalKeys: parsedUser.keys }));
-      }
+      try { setUser(JSON.parse(savedUser)); } catch (e) {}
     }
     
-    if (savedMessages) setMessages(JSON.parse(savedMessages));
-    if (savedSettings) {
-      const s = JSON.parse(savedSettings);
-      if (s.global) setGlobalSettings(s.global);
-      if (s.model) setModelSettings(s.model);
+    if (savedMessages) {
+      try { setMessages(JSON.parse(savedMessages)); } catch (e) {}
     }
+
     if (savedAgentId) {
       const agent = AGENTS.find(a => a.id === savedAgentId);
       if (agent) setCurrentAgent(agent);
@@ -66,6 +74,7 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // SYNC TO LOCAL STORAGE
   useEffect(() => {
     if (user) {
       localStorage.setItem(AUTH_KEY, JSON.stringify(user));
@@ -75,48 +84,73 @@ const App: React.FC = () => {
     }
   }, [messages, currentAgent, user, globalSettings, modelSettings]);
 
+  const speakText = async (text: string) => {
+    if (isSpeaking) return;
+    setIsSpeaking(true);
+    try {
+      const { audioBuffer, audioCtx } = await geminiService.generateSpeech(text, modelSettings.voiceName);
+      const source = audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(audioCtx.destination);
+      source.onended = () => setIsSpeaking(false);
+      source.start();
+    } catch { 
+      setIsSpeaking(false); 
+    }
+  };
+
   const handleSendMessage = async (content: string, image?: string) => {
     const userMessage: Message = { id: Date.now().toString(), role: 'user', content, image, timestamp: Date.now() };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
-      const history = messages.slice(-12).map(msg => ({
+      const history = messages.slice(-modelSettings.historyDepth).map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model' as 'user' | 'model',
         parts: [{ text: msg.content }]
       }));
 
-      // In a real implementation, you'd switch services based on agent.model
-      // For now, we use Gemini as the primary orchestrator.
+      const activeAgent = { ...currentAgent };
+      if (modelSettings.inferenceMode === 'TURBO' && !activeAgent.model.includes('image')) {
+        activeAgent.model = 'gemini-3-flash-preview';
+      } else if (modelSettings.inferenceMode === 'PRECISION' && !activeAgent.model.includes('image')) {
+        activeAgent.model = 'gemini-3-pro-preview';
+      }
+
       const response = await geminiService.chat(
-        currentAgent, content, history, modelSettings, globalSettings.memories, image, userLocation
+        activeAgent, content, history, modelSettings, globalSettings.memories, image, userLocation
       );
 
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(), role: 'assistant', content: response.text,
-        image: (response as any).image, groundingLinks: response.groundingLinks, timestamp: Date.now()
+        id: (Date.now() + 1).toString(), 
+        role: 'assistant', 
+        content: response.text,
+        image: (response as any).image, 
+        groundingLinks: response.groundingLinks, 
+        timestamp: Date.now()
       };
       setMessages(prev => [...prev, assistantMessage]);
+
+      if (modelSettings.autoRead && response.text) {
+        speakText(response.text);
+      }
     } catch (error) {
       setMessages(prev => [...prev, {
-        id: Date.now().toString(), role: 'assistant', content: "Neural synchronization failed. Please check your API keys and connectivity.", timestamp: Date.now()
+        id: Date.now().toString(), role: 'assistant', content: "Neural synchronization failed. Please verify API keys.", timestamp: Date.now()
       }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (!user) return <AuthGate onAuthorized={(u) => {
-    setUser(u);
-    setGlobalSettings(prev => ({ ...prev, externalKeys: u.keys }));
-  }} />;
+  if (!user) return <AuthGate onAuthorized={(u) => setUser(u)} />;
 
   return (
-    <div className="flex h-screen bg-[#020617] text-slate-100 overflow-hidden font-sans">
+    <div className={`flex h-screen bg-[#020617] text-slate-100 overflow-hidden font-sans ${modelSettings.uiDensity === 'COMPACT' ? 'text-sm' : 'text-base'}`}>
       <Sidebar 
         currentAgent={currentAgent} onSelectAgent={setCurrentAgent} 
         isMobileOpen={isSidebarOpen} onCloseMobile={() => setIsSidebarOpen(false)}
-        user={user} onLogout={() => { setUser(null); localStorage.clear(); }}
+        user={user} onLogout={() => { setUser(null); localStorage.clear(); window.location.reload(); }}
         globalSettings={globalSettings} modelSettings={modelSettings}
         onUpdateGlobal={setGlobalSettings} onUpdateModel={setModelSettings}
       />
@@ -130,30 +164,21 @@ const App: React.FC = () => {
             <div className="flex items-center gap-3">
               <span className="text-xl filter drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">{currentAgent.icon}</span>
               <div className="flex flex-col -space-y-1">
-                <h2 className="font-black text-sm uppercase tracking-wider">{currentAgent.name}</h2>
-                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{currentAgent.model}</span>
+                <h2 className="font-black text-xs uppercase tracking-wider">{currentAgent.name}</h2>
+                <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">
+                  {modelSettings.inferenceMode} • {currentAgent.model}
+                </span>
               </div>
             </div>
           </div>
           <button onClick={() => { if(confirm("Purge history?")) setMessages([]); }} className="p-2 text-slate-600 hover:text-red-400 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
           </button>
         </header>
 
         <ChatWindow 
           messages={messages} isLoading={isLoading} 
-          onSpeak={async (text) => {
-            if (isSpeaking) return;
-            setIsSpeaking(true);
-            try {
-              const { audioBuffer, audioCtx } = await geminiService.generateSpeech(text);
-              const source = audioCtx.createBufferSource();
-              source.buffer = audioBuffer;
-              source.connect(audioCtx.destination);
-              source.onended = () => setIsSpeaking(false);
-              source.start();
-            } catch { setIsSpeaking(false); }
-          }} 
+          onSpeak={speakText} 
           isSpeaking={isSpeaking}
         />
         

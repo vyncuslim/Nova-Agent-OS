@@ -21,6 +21,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
   
   // External Keys State
   const [keys, setKeys] = useState<ExternalKeys>({
+    gemini: '',
     openai: '',
     grok: '',
     deepseek: '',
@@ -55,7 +56,6 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
                 setStage(4);
               }
             },
-            // CRITICAL: Set to false to fix FedCM feature-policy error in document
             use_fedcm_for_prompt: false,
             context: 'signin'
           });
@@ -65,7 +65,6 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
             });
             setGsiStatus('ready');
           }
-          // Only prompt if we explicitly need it, but renderButton is safer
         }
       }, 100);
       return () => clearInterval(checkInterval);
@@ -88,6 +87,11 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
   };
 
   const handleFinalize = () => {
+    if (!keys.gemini?.trim()) {
+      setError('GEMINI API KEY REQUIRED');
+      setStage(2);
+      return;
+    }
     onAuthorized({
       name: googleUser?.name || 'Authorized Guest',
       email: googleUser?.email,
@@ -99,7 +103,10 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
 
   const updateKey = (field: keyof ExternalKeys, value: string) => {
     setKeys(prev => ({ ...prev, [field]: value }));
+    if (field === 'gemini' && value.trim()) setError('');
   };
+
+  const isGeminiReady = !!keys.gemini?.trim();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#020617] overflow-hidden text-slate-200">
@@ -150,17 +157,28 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
                 <div className="space-y-4 animate-in fade-in zoom-in-95 max-h-[450px] overflow-y-auto px-1 custom-scrollbar">
                   <div className="grid grid-cols-1 gap-4 text-left">
                     <div className="space-y-3">
-                      <div className="p-4 bg-indigo-500/5 border border-indigo-500/20 rounded-2xl flex items-center justify-between">
-                        <div>
-                          <p className="text-xs font-bold text-indigo-300">Google Gemini API</p>
-                          <p className="text-[9px] text-slate-500 uppercase tracking-tighter">Core Model Uplink</p>
+                      <div className="space-y-2 p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+                        <div className="flex items-center justify-between">
+                          <p className={`text-xs font-bold ${isGeminiReady ? 'text-indigo-300' : 'text-red-400'}`}>
+                            Gemini (Google) *
+                          </p>
+                          <button 
+                            onClick={handleGeminiSync}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-[9px] font-black uppercase transition-colors"
+                          >
+                            Sync Dialog
+                          </button>
                         </div>
-                        <button 
-                          onClick={handleGeminiSync}
-                          className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-colors"
-                        >
-                          Sync Key
-                        </button>
+                        <input 
+                          type="password"
+                          placeholder="AIza..."
+                          value={keys.gemini}
+                          onChange={(e) => updateKey('gemini', e.target.value)}
+                          className={`w-full bg-slate-950/50 border ${!isGeminiReady ? 'border-red-500/30' : 'border-slate-800'} rounded-xl px-4 py-2.5 text-xs text-indigo-200 outline-none focus:border-indigo-500/50 font-mono`}
+                        />
+                        {!isGeminiReady && (
+                          <p className="text-[8px] text-red-500 font-black uppercase tracking-tighter">Gemini API Key is mandatory for Neural OS</p>
+                        )}
                       </div>
 
                       {[
@@ -182,39 +200,63 @@ const AuthGate: React.FC<AuthGateProps> = ({ onAuthorized }) => {
                       ))}
                     </div>
                   </div>
-                  <button onClick={() => setStage(3)} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-700 transition-all mt-4">Save & Continue</button>
+                  <button 
+                    disabled={!isGeminiReady}
+                    onClick={() => setStage(3)} 
+                    className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all mt-4 ${
+                      isGeminiReady 
+                        ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-600/20' 
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Confirm Keys
+                  </button>
                 </div>
               )}
 
               {stage === 3 && (
-                <div className="space-y-6 animate-in fade-in zoom-in-95">
-                  <div className="p-6 bg-slate-800/40 rounded-[2rem] border border-slate-700/50 flex flex-col items-center gap-6">
-                    <div ref={googleBtnContainerRef} className="flex justify-center"></div>
-                    {gsiStatus === 'loading' && <div className="text-[10px] text-slate-600 animate-pulse font-black uppercase">Synchronizing Neural ID...</div>}
-                    <div className="h-px w-1/2 bg-slate-800"></div>
-                    <button onClick={() => setStage(4)} className="text-[10px] text-indigo-400/50 hover:text-indigo-400 font-black uppercase transition-colors tracking-widest">Bypass to Guest Session</button>
+                <div className="space-y-8 animate-in fade-in zoom-in-95">
+                  <div className="flex flex-col items-center justify-center p-8 bg-slate-950/30 rounded-[2rem] border border-white/5">
+                    <div ref={googleBtnContainerRef} className="flex justify-center" />
+                    {gsiStatus === 'loading' && <div className="mt-4 text-[10px] text-slate-500 animate-pulse">Initializing Secure Channel...</div>}
                   </div>
+                  <button onClick={() => setStage(4)} className="w-full py-3 text-slate-500 hover:text-slate-300 text-[10px] font-black uppercase tracking-widest transition-all">Skip Identity Verification</button>
                 </div>
               )}
 
               {stage === 4 && (
                 <div className="space-y-6 animate-in fade-in zoom-in-95">
-                   <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center gap-4">
-                      <div className="relative">
-                        <img src={googleUser?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=NovaGuest'} className="w-20 h-20 rounded-3xl border-2 border-emerald-500/50" alt="Avatar" />
-                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full border-4 border-slate-900 flex items-center justify-center text-[10px]">✓</div>
+                  <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl text-left space-y-4">
+                    <div className="flex items-center gap-4">
+                      <img src={googleUser?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Guest'} className="w-12 h-12 rounded-xl border border-emerald-500/30" alt="Identity" />
+                      <div>
+                        <p className="text-white font-bold">{googleUser?.name || 'Guest Agent'}</p>
+                        <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest">Protocol Ready</p>
                       </div>
-                      <div className="text-center">
-                        <p className="text-lg font-black text-white">{googleUser?.name || 'Guest Explorer'}</p>
-                        <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">{googleUser?.email || 'OFFLINE_MODE'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[9px] text-slate-500 font-bold uppercase tracking-tight">Active Uplinks</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(keys).filter(([_, v]) => !!v).map(([k]) => (
+                          <span key={k} className="px-2 py-0.5 bg-slate-800 rounded text-[8px] text-indigo-300 border border-slate-700 font-black uppercase">{k}</span>
+                        ))}
                       </div>
-                   </div>
-                   <button onClick={handleFinalize} className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-[0.4em] hover:bg-emerald-500 shadow-2xl shadow-emerald-600/20 active:scale-95 transition-all">Establish Neural Link</button>
+                    </div>
+                  </div>
+                  <button 
+                    disabled={!isGeminiReady}
+                    onClick={handleFinalize} 
+                    className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all ${
+                      isGeminiReady 
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/20' 
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Finalize Initialization
+                  </button>
                 </div>
               )}
             </div>
-
-            <div className="mt-10 opacity-30 text-[8px] font-black uppercase tracking-[0.6em]">AES-256-V3 Encrypted Neural Gateway</div>
           </div>
         </div>
       </div>

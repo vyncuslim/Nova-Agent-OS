@@ -2,6 +2,7 @@
 import { GoogleGenAI, GenerateContentResponse, Type, Modality } from "@google/genai";
 import { AgentConfig, GroundingLink, ModelSettings } from "../types";
 
+// Helper to decode base64 audio data
 function decodeBase64(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -12,6 +13,7 @@ function decodeBase64(base64: string) {
   return bytes;
 }
 
+// Helper to decode raw PCM audio data into an AudioBuffer
 async function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
@@ -65,18 +67,26 @@ export class GeminiService {
     }
     contents.push({ role: 'user', parts: currentParts });
 
+    // Ensure maxOutputTokens accounts for thinkingBudget to avoid blocking response text.
+    // The effective response limit is maxOutputTokens - thinkingBudget.
+    const calculatedMaxTokens = settings.thinkingBudget > 0 
+      ? settings.maxOutputTokens + settings.thinkingBudget 
+      : settings.maxOutputTokens;
+
     const config: any = {
       systemInstruction: fullSystemInstruction,
       temperature: settings.temperature,
-      maxOutputTokens: settings.maxOutputTokens,
+      maxOutputTokens: calculatedMaxTokens,
     };
 
+    // Apply Thinking Config for supported models
     if (settings.thinkingBudget > 0 && (agent.model.includes('gemini-3') || agent.model.includes('gemini-2.5'))) {
       config.thinkingConfig = { thinkingBudget: settings.thinkingBudget };
     }
 
     if (tools.length > 0) config.tools = tools;
 
+    // Apply Maps Grounding configuration
     if (agent.tools?.includes('googleMaps') && location) {
       config.toolConfig = {
         retrievalConfig: {
@@ -85,6 +95,7 @@ export class GeminiService {
       };
     }
 
+    // Direct redirection for image generation agents
     if (agent.model.includes('image')) {
       return await this.generateImage(agent.model, message, image);
     }
@@ -96,6 +107,7 @@ export class GeminiService {
         config,
       });
 
+      // Extract Grounding Links from search or maps
       const groundingLinks: GroundingLink[] = [];
       const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
       if (chunks) {
@@ -120,6 +132,7 @@ export class GeminiService {
     }
   }
 
+  // Handle single-speaker text-to-speech using gemini-2.5-flash-preview-tts
   async generateSpeech(text: string, voice: string = 'Kore') {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
@@ -143,6 +156,7 @@ export class GeminiService {
     return { audioBuffer, audioCtx };
   }
 
+  // Handle image generation using gemini-2.5-flash-image
   private async generateImage(model: string, prompt: string, baseImage?: string) {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const parts: any[] = [{ text: prompt }];

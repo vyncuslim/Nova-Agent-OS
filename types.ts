@@ -7,11 +7,15 @@ export enum AgentRole {
   CODER = 'CODER'
 }
 
+export type InferenceMode = 'STANDARD' | 'PRECISION' | 'TURBO';
+export type UIDensity = 'COMPACT' | 'SPACIOUS';
+
 export interface ExternalKeys {
   openai?: string;
   grok?: string;
   deepseek?: string;
   claude?: string;
+  gemini?: string;
 }
 
 export interface User {
@@ -41,6 +45,11 @@ export interface ModelSettings {
   temperature: number;
   thinkingBudget: number;
   maxOutputTokens: number;
+  inferenceMode: InferenceMode;
+  voiceName: string;
+  autoRead: boolean;
+  historyDepth: number;
+  uiDensity: UIDensity;
 }
 
 export interface GlobalSettings {
