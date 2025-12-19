@@ -4,13 +4,14 @@ import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import InputArea from './components/InputArea';
 import AuthGate from './components/AuthGate';
-import { AgentConfig, Message, User } from './types';
+import { AgentConfig, Message, User, GlobalSettings, ModelSettings } from './types';
 import { AGENTS } from './constants';
 import { geminiService } from './services/geminiService';
 
-const STORAGE_KEY = 'nova_chat_history_v2';
-const AGENT_KEY = 'nova_selected_agent';
-const AUTH_KEY = 'nova_auth_session';
+const STORAGE_KEY = 'nova_chat_v2_5';
+const SETTINGS_KEY = 'nova_settings_v2_5';
+const AGENT_KEY = 'nova_agent_v2_5';
+const AUTH_KEY = 'nova_auth_v2_5';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -21,189 +22,105 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | undefined>();
 
-  // Initialize Session
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
+    memories: [],
+    externalKeys: {}
+  });
+
+  const [modelSettings, setModelSettings] = useState<ModelSettings>({
+    temperature: 1.0,
+    thinkingBudget: 0,
+    maxOutputTokens: 2048
+  });
+
   useEffect(() => {
     const savedUser = localStorage.getItem(AUTH_KEY);
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-
     const savedMessages = localStorage.getItem(STORAGE_KEY);
+    const savedSettings = localStorage.getItem(SETTINGS_KEY);
     const savedAgentId = localStorage.getItem(AGENT_KEY);
     
-    if (savedMessages) {
-      try {
-        setMessages(JSON.parse(savedMessages));
-      } catch (e) {
-        console.error("Failed to parse history", e);
-      }
+    if (savedUser) setUser(JSON.parse(savedUser));
+    if (savedMessages) setMessages(JSON.parse(savedMessages));
+    if (savedSettings) {
+      const s = JSON.parse(savedSettings);
+      if (s.global) setGlobalSettings(s.global);
+      if (s.model) setModelSettings(s.model);
     }
-
     if (savedAgentId) {
       const agent = AGENTS.find(a => a.id === savedAgentId);
       if (agent) setCurrentAgent(agent);
     }
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (p) => setUserLocation({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
+        () => console.debug("Location denied")
+      );
+    }
   }, []);
 
-  // Sync state with storage
   useEffect(() => {
     if (user) {
       localStorage.setItem(AUTH_KEY, JSON.stringify(user));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
       localStorage.setItem(AGENT_KEY, currentAgent.id);
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify({ global: globalSettings, model: modelSettings }));
     }
-  }, [messages, currentAgent, user]);
-
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          });
-        }
-      );
-    }
-  }, []);
-
-  const handleAuthorized = (authorizedUser: User) => {
-    setUser(authorizedUser);
-  };
-
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem(AUTH_KEY);
-    localStorage.removeItem(STORAGE_KEY);
-    setMessages([]);
-  };
+  }, [messages, currentAgent, user, globalSettings, modelSettings]);
 
   const handleSendMessage = async (content: string, image?: string) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content,
-      image,
-      timestamp: Date.now()
-    };
-
+    const userMessage: Message = { id: Date.now().toString(), role: 'user', content, image, timestamp: Date.now() };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
-      const history = messages.slice(-10).map(msg => ({
+      const history = messages.slice(-12).map(msg => ({
         role: msg.role === 'user' ? 'user' : 'model' as 'user' | 'model',
         parts: [{ text: msg.content }]
       }));
 
       const response = await geminiService.chat(
-        currentAgent, 
-        content, 
-        history, 
-        image, 
-        userLocation
+        currentAgent, content, history, modelSettings, globalSettings.memories, image, userLocation
       );
 
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.text,
-        image: (response as any).image,
-        groundingLinks: response.groundingLinks,
-        timestamp: Date.now()
+        id: (Date.now() + 1).toString(), role: 'assistant', content: response.text,
+        image: (response as any).image, groundingLinks: response.groundingLinks, timestamp: Date.now()
       };
-
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Gemini API Error:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: "I encountered a neural synchronization error. Please check your connection.",
-        timestamp: Date.now()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(), role: 'assistant', content: "Neural synchronization failed. Retrying logic might be needed.", timestamp: Date.now()
+      }]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSpeak = async (text: string) => {
-    if (isSpeaking) return;
-    setIsSpeaking(true);
-    try {
-      const { audioBuffer, audioCtx } = await geminiService.generateSpeech(text);
-      const source = audioCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioCtx.destination);
-      source.onended = () => setIsSpeaking(false);
-      source.start();
-    } catch (error) {
-      console.error("Speech error", error);
-      setIsSpeaking(false);
-    }
-  };
-
-  const clearSession = () => {
-    if (window.confirm("Are you sure you want to delete your current session history?")) {
-      setMessages([]);
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  };
-
-  if (!user) {
-    return <AuthGate onAuthorized={handleAuthorized} />;
-  }
+  if (!user) return <AuthGate onAuthorized={setUser} />;
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-[#020617] text-slate-100 overflow-hidden font-sans">
       <Sidebar 
-        currentAgent={currentAgent} 
-        onSelectAgent={setCurrentAgent} 
-        isMobileOpen={isSidebarOpen}
-        onCloseMobile={() => setIsSidebarOpen(false)}
-        user={user}
-        onLogout={handleLogout}
+        currentAgent={currentAgent} onSelectAgent={setCurrentAgent} 
+        isMobileOpen={isSidebarOpen} onCloseMobile={() => setIsSidebarOpen(false)}
+        user={user} onLogout={() => { setUser(null); localStorage.clear(); }}
+        globalSettings={globalSettings} modelSettings={modelSettings}
+        onUpdateGlobal={setGlobalSettings} onUpdateModel={setModelSettings}
       />
       
-      <main className="flex-1 flex flex-col min-w-0 bg-[#0c1221]">
-        <header className="h-16 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center justify-between px-4 md:px-8 z-30">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      <main className="flex-1 flex flex-col min-w-0 bg-[#070b14]">
+        <header className="h-16 border-b border-slate-800 bg-slate-900/40 backdrop-blur-xl flex items-center justify-between px-6 z-30">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-400 hover:text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
             </button>
-            <div className="flex items-center gap-2">
-              <span className="text-xl">{currentAgent.icon}</span>
-              <h2 className="font-semibold">{currentAgent.name}</h2>
+            <div className="flex items-center gap-3">
+              <span className="text-xl filter drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">{currentAgent.icon}</span>
+              <div className="flex flex-col -space-y-1">
+                <h2 className="font-black text-sm uppercase tracking-wider">{currentAgent.name}</h2>
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{currentAgent.model}</span>
+              </div>
             </div>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={clearSession}
-              className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-all"
-              title="Reset Session"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-          </div>
-        </header>
-
-        <ChatWindow 
-          messages={messages} 
-          isLoading={isLoading} 
-          onSpeak={handleSpeak} 
-          isSpeaking={isSpeaking}
-        />
-        
-        <InputArea onSendMessage={handleSendMessage} isLoading={isLoading} />
-      </main>
-
-      {isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
-      )}
-    </div>
-  );
-};
-
-export default App;
+          <

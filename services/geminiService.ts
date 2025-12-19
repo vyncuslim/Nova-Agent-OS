@@ -1,8 +1,7 @@
 
 import { GoogleGenAI, GenerateContentResponse, Type, Modality } from "@google/genai";
-import { AgentConfig, GroundingLink } from "../types";
+import { AgentConfig, GroundingLink, ModelSettings } from "../types";
 
-// Base64 decoding utility following guideline examples
 function decodeBase64(base64: string) {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -13,7 +12,6 @@ function decodeBase64(base64: string) {
   return bytes;
 }
 
-// PCM Audio Decoding utility following guideline examples
 async function decodeAudioData(
   data: Uint8Array,
   ctx: AudioContext,
@@ -34,16 +32,24 @@ async function decodeAudioData(
 }
 
 export class GeminiService {
-  // Creating GoogleGenAI instances right before API calls to ensure most up-to-date API key is used
-
   async chat(
     agent: AgentConfig,
     message: string,
     history: { role: 'user' | 'model'; parts: { text: string }[] }[],
+    settings: ModelSettings,
+    memories: string[],
     image?: string,
     location?: { latitude: number; longitude: number }
   ) {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Inject memories into system instruction
+    const memoryContext = memories.length > 0 
+      ? `\n[GLOBAL MEMORIES]:\n${memories.map(m => `- ${m}`).join('\n')}`
+      : "";
+    
+    const fullSystemInstruction = `${agent.systemInstruction}${memoryContext}`;
+
     const tools: any[] = [];
     if (agent.tools?.includes('googleSearch')) tools.push({ googleSearch: {} });
     if (agent.tools?.includes('googleMaps')) tools.push({ googleMaps: {} });
@@ -54,35 +60,34 @@ export class GeminiService {
     const currentParts: any[] = [{ text: message }];
     if (image) {
       currentParts.push({
-        inlineData: {
-          mimeType: "image/png",
-          data: image.split(",")[1],
-        },
+        inlineData: { mimeType: "image/png", data: image.split(",")[1] },
       });
     }
     contents.push({ role: 'user', parts: currentParts });
 
     const config: any = {
-      systemInstruction: agent.systemInstruction,
+      systemInstruction: fullSystemInstruction,
+      temperature: settings.temperature,
+      maxOutputTokens: settings.maxOutputTokens,
     };
 
-    if (tools.length > 0) {
-      config.tools = tools;
+    // Thinking Budget config for Gemini 3 and 2.5
+    if (settings.thinkingBudget > 0 && (agent.model.includes('gemini-3') || agent.model.includes('gemini-2.5'))) {
+      config.thinkingConfig = { thinkingBudget: settings.thinkingBudget };
     }
+
+    if (tools.length > 0) config.tools = tools;
 
     if (agent.tools?.includes('googleMaps') && location) {
       config.toolConfig = {
         retrievalConfig: {
-          latLng: {
-            latitude: location.latitude,
-            longitude: location.longitude
-          }
+          latLng: { latitude: location.latitude, longitude: location.longitude }
         }
       };
     }
 
     if (agent.model.includes('image')) {
-       return await this.generateImage(agent.model, message, image);
+      return await this.generateImage(agent.model, message, image);
     }
 
     const response = await ai.models.generateContent({
@@ -95,15 +100,11 @@ export class GeminiService {
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     if (chunks) {
       chunks.forEach((chunk: any) => {
-        if (chunk.web) {
-          groundingLinks.push({ uri: chunk.web.uri, title: chunk.web.title });
-        } else if (chunk.maps) {
-          groundingLinks.push({ uri: chunk.maps.uri, title: chunk.maps.title });
-        }
+        if (chunk.web) groundingLinks.push({ uri: chunk.web.uri, title: chunk.web.title });
+        else if (chunk.maps) groundingLinks.push({ uri: chunk.maps.uri, title: chunk.maps.title });
       });
     }
 
-    // Access .text property directly as per guidelines
     return {
       text: response.text || "No response generated.",
       groundingLinks
@@ -118,9 +119,7 @@ export class GeminiService {
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: voice },
-          },
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
         },
       },
     });
@@ -140,40 +139,27 @@ export class GeminiService {
     const parts: any[] = [{ text: prompt }];
     if (baseImage) {
       parts.push({
-        inlineData: {
-          data: baseImage.split(",")[1],
-          mimeType: "image/png"
-        }
+        inlineData: { data: baseImage.split(",")[1], mimeType: "image/png" }
       });
     }
 
     const response = await ai.models.generateContent({
       model: model,
       contents: { parts },
-      config: {
-        imageConfig: { aspectRatio: "1:1" }
-      }
+      config: { imageConfig: { aspectRatio: "1:1" } }
     });
 
     let generatedImage = "";
     let text = "";
 
-    // Iterate through candidates to find the image part
     if (response.candidates?.[0]?.content?.parts) {
       for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          generatedImage = `data:image/png;base64,${part.inlineData.data}`;
-        } else if (part.text) {
-          text = part.text;
-        }
+        if (part.inlineData) generatedImage = `data:image/png;base64,${part.inlineData.data}`;
+        else if (part.text) text = part.text;
       }
     }
 
-    return {
-      text: text || "Generated an image based on your prompt.",
-      image: generatedImage,
-      groundingLinks: []
-    };
+    return { text: text || "Generated an image.", image: generatedImage, groundingLinks: [] };
   }
 }
 

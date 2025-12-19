@@ -29,6 +29,21 @@ export interface Message {
   isThinking?: boolean;
 }
 
+export interface ModelSettings {
+  temperature: number;
+  thinkingBudget: number;
+  maxOutputTokens: number;
+}
+
+export interface GlobalSettings {
+  memories: string[];
+  externalKeys: {
+    openai?: string;
+    deepseek?: string;
+    grok?: string;
+  };
+}
+
 export interface AgentConfig {
   id: AgentRole;
   name: string;
