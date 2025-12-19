@@ -1,0 +1,9 @@
+{
+  "name": "Nova Agent OS",
+  "description": "A sophisticated AI agent platform powered by Gemini, featuring specialized personas for research, creativity, and daily assistance with integrated grounding and voice capabilities.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
