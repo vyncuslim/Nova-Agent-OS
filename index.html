@@ -4,38 +4,101 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nova Agent OS</title>
+    <title>Nova Agent OS | Platinum</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap');
+      
+      :root {
+        --color-bg: #020617;
+        --color-glass: rgba(15, 23, 42, 0.7);
+        --color-accent: #6366f1;
+      }
+
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #0f172a;
+        background-color: var(--color-bg);
         color: #f8fafc;
         margin: 0;
         overflow: hidden;
       }
+
+      .font-mono {
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* Advanced Glassmorphism */
+      .glass-panel {
+        background: var(--color-glass);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .glass-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      /* Animations */
+      @keyframes pulse-ring {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+      }
+
+      .neural-pulse {
+        animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+      }
+
+      .animate-float {
+        animation: float 6s ease-in-out infinite;
+      }
+
+      /* Custom Scrollbar */
       ::-webkit-scrollbar {
-        width: 6px;
+        width: 4px;
+        height: 4px;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #334155;
+        background: rgba(99, 102, 241, 0.2);
         border-radius: 10px;
+        transition: all 0.3s;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #475569;
+        background: rgba(99, 102, 241, 0.5);
       }
-      @keyframes shake {
-        0%, 100% { transform: translateX(0); }
-        25% { transform: translateX(-4px); }
-        75% { transform: translateX(4px); }
+
+      /* Typing Indicator Animation */
+      .dot-typing {
+        position: relative;
+        left: -9999px;
+        width: 6px;
+        height: 6px;
+        border-radius: 5px;
+        background-color: #6366f1;
+        color: #6366f1;
+        box-shadow: 9999px 0 0 0 #6366f1;
+        animation: dot-typing 1.5s infinite linear;
       }
-      .animate-shake {
-        animation: shake 0.2s ease-in-out 0s 2;
+
+      @keyframes dot-typing {
+        0% { box-shadow: 9984px 0 0 0 #6366f1, 9999px 0 0 0 #6366f1, 10014px 0 0 0 rgba(99, 102, 241, 0); }
+        16.667% { box-shadow: 9984px -10px 0 0 #6366f1, 9999px 0 0 0 #6366f1, 10014px 0 0 0 #6366f1; }
+        33.333% { box-shadow: 9984px 0 0 0 #6366f1, 9999px -10px 0 0 #6366f1, 10014px 0 0 0 #6366f1; }
+        50% { box-shadow: 9984px 0 0 0 #6366f1, 9999px 0 0 0 #6366f1, 10014px -10px 0 0 #6366f1; }
+        66.667% { box-shadow: 9984px 0 0 0 #6366f1, 9999px 0 0 0 #6366f1, 10014px 0 0 0 #6366f1; }
+        100% { box-shadow: 9984px 0 0 0 #6366f1, 9999px 0 0 0 #6366f1, 10014px 0 0 0 #6366f1; }
       }
     </style>
   <script type="importmap">
@@ -51,7 +114,6 @@
 </head>
   <body>
     <div id="root"></div>
-    <!-- CRITICAL: Added entry point script -->
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>

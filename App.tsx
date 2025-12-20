@@ -10,12 +10,11 @@ import { AGENTS } from './constants';
 import { geminiService } from './services/geminiService';
 import { translations } from './translations';
 
-const STORAGE_KEY = 'nova_chat_v3_3';
-const SETTINGS_KEY = 'nova_settings_v3_3';
-const AGENT_KEY = 'nova_agent_v3_3';
-const AUTH_KEY = 'nova_auth_v3_3';
+const STORAGE_KEY = 'nova_chat_v3_5';
+const SETTINGS_KEY = 'nova_settings_v3_5';
+const AGENT_KEY = 'nova_agent_v3_5';
+const AUTH_KEY = 'nova_auth_v3_5';
 
-// Manual base64 decode implementation following SDK guidelines
 function decodeBase64(base64: string): Uint8Array {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -64,7 +63,13 @@ const App: React.FC = () => {
 
   const [modelSettings, setModelSettings] = useState<ModelSettings>(() => {
     const saved = localStorage.getItem(SETTINGS_KEY);
-    if (saved) try { return JSON.parse(saved).model; } catch (e) {}
+    if (saved) try { 
+      const parsed = JSON.parse(saved).model;
+      return { 
+        saveHistory: true, 
+        ...parsed 
+      }; 
+    } catch (e) {}
     return { 
       temperature: 1.0, 
       thinkingBudget: 0, 
@@ -79,7 +84,8 @@ const App: React.FC = () => {
       customModelOverrides: {},
       imageSize: '1K',
       useSearch: false,
-      useMaps: false
+      useMaps: false,
+      saveHistory: true
     };
   });
 
@@ -87,10 +93,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const savedUser = localStorage.getItem(AUTH_KEY);
-    const savedMessages = localStorage.getItem(STORAGE_KEY);
     const savedAgentId = localStorage.getItem(AGENT_KEY);
     if (savedUser) try { setUser(JSON.parse(savedUser)); } catch (e) {}
-    if (savedMessages) try { setMessages(JSON.parse(savedMessages)); } catch (e) {}
+    
+    // Load messages ONLY if saveHistory is enabled
+    if (modelSettings.saveHistory) {
+      const savedMessages = localStorage.getItem(STORAGE_KEY);
+      if (savedMessages) try { setMessages(JSON.parse(savedMessages)); } catch (e) {}
+    }
+
     if (savedAgentId) {
       const agent = AGENTS.find(a => a.id === savedAgentId);
       if (agent) setCurrentAgent(agent);
@@ -103,15 +114,20 @@ const App: React.FC = () => {
       );
     }
 
-    console.log("%c NOVA AGENT OS v3.3 ACTIVE ", "background: #4f46e5; color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;");
+    console.log("%c NOVA AGENT OS v3.5 PLATINUM ACTIVE ", "background: #4f46e5; color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;");
   }, []);
 
   useEffect(() => {
     if (user) {
       localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
       localStorage.setItem(AGENT_KEY, currentAgent.id);
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({ global: globalSettings, model: modelSettings }));
+      
+      if (modelSettings.saveHistory) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
     }
   }, [messages, currentAgent, user, globalSettings, modelSettings]);
 
@@ -121,7 +137,6 @@ const App: React.FC = () => {
     }
     const provider = modelSettings.coreProvider;
     const key = globalSettings.externalKeys[provider.toLowerCase() as keyof typeof globalSettings.externalKeys];
-    if (!key) console.warn(`[NOVA] Missing API Key for provider: ${provider}`);
     return key;
   };
 
@@ -186,7 +201,7 @@ const App: React.FC = () => {
   const handleSendMessage = async (content: string, image?: string, forceConfirm = false) => {
     const apiKey = getCurrentApiKey();
     if (!apiKey) {
-      alert(modelSettings.language === 'ZH' ? '错误：未检测到 API Key，请在设置中配置。' : 'Error: No API Key detected. Please configure in settings.');
+      alert(t.settings_uplinks);
       return;
     }
 
@@ -226,7 +241,7 @@ const App: React.FC = () => {
   const startLiveMode = async () => {
     const apiKey = getCurrentApiKey();
     if (!apiKey) {
-      alert(modelSettings.language === 'ZH' ? '实时链路需要有效密钥。' : 'Live link requires a valid API key.');
+      alert(t.settings_uplinks);
       return;
     }
     
@@ -268,7 +283,6 @@ const App: React.FC = () => {
               { id: Date.now().toString(), role: 'user', content: "Voice Interaction Complete", timestamp: Date.now() },
               { id: (Date.now()+1).toString(), role: 'assistant', content: "Live Dialogue Finalized", timestamp: Date.now() }
             ]);
-            // Optional: reset trans on turn complete for better UI
           }
 
           const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
@@ -298,7 +312,6 @@ const App: React.FC = () => {
         },
         onerror: (e) => { 
           console.error("Live Error", e); 
-          alert(`Live Connection Error: ${e.message || 'Unknown protocol error'}`);
           stopLiveMode(); 
         },
         onclose: () => stopLiveMode()
@@ -307,7 +320,6 @@ const App: React.FC = () => {
       liveSessionRef.current = await sessionPromise;
     } catch (e: any) {
       console.error(e);
-      alert(`Initialization Failed: ${e.message}`);
       stopLiveMode();
     }
   };
@@ -322,11 +334,10 @@ const App: React.FC = () => {
     setIsLiveMode(false);
   };
 
-  const handleConfirmImage = (msgId: string) => {
-    const msg = messages.find(m => m.id === msgId);
-    if (msg) {
-      setMessages(prev => prev.filter(m => m.id !== msgId));
-      handleSendMessage(msg.content, undefined, true);
+  const handleClearHistory = () => {
+    if (confirm(t.purge_history)) {
+      setMessages([]);
+      localStorage.removeItem(STORAGE_KEY);
     }
   };
 
@@ -350,10 +361,11 @@ const App: React.FC = () => {
         user={user} onLogout={() => { setUser(null); localStorage.clear(); window.location.reload(); }}
         globalSettings={globalSettings} modelSettings={modelSettings}
         onUpdateGlobal={setGlobalSettings} onUpdateModel={setModelSettings}
+        onClearHistory={handleClearHistory}
       />
       
       <main className="flex-1 flex flex-col min-w-0 bg-[#070b14] relative">
-        <header className="h-16 border-b border-slate-800 bg-slate-900/40 backdrop-blur-xl flex items-center justify-between px-6 z-30">
+        <header className="h-16 glass-panel border-b border-white/5 flex items-center justify-between px-6 z-30">
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
@@ -362,7 +374,7 @@ const App: React.FC = () => {
               <span className="text-xl filter drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">{currentAgent.icon}</span>
               <div className="flex flex-col -space-y-1">
                 <h2 className="font-black text-xs uppercase tracking-wider">{currentAgent.name}</h2>
-                <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest">
+                <span className="text-[9px] text-indigo-500 font-bold uppercase tracking-widest font-mono">
                   {modelSettings.customModelOverrides[currentAgent.id] || currentAgent.model}
                 </span>
               </div>
@@ -372,7 +384,7 @@ const App: React.FC = () => {
              <button 
                onClick={isLiveMode ? stopLiveMode : startLiveMode}
                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${
-                 isLiveMode ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500'
+                 isLiveMode ? 'bg-red-500/20 border-red-500 text-red-500' : 'bg-indigo-600/20 border-indigo-500/50 text-indigo-400 hover:bg-indigo-600 hover:text-white'
                }`}
              >
                <span className={isLiveMode ? 'animate-pulse' : ''}>📡</span>
@@ -392,7 +404,7 @@ const App: React.FC = () => {
               <h3 className="text-2xl font-black uppercase tracking-tighter">{t.live_mode}</h3>
               <p className="text-slate-400 text-sm">{t.live_desc}</p>
             </div>
-            <div className="w-full max-w-2xl bg-slate-900/50 border border-white/5 rounded-3xl p-6 min-h-[200px] space-y-4 overflow-y-auto custom-scrollbar">
+            <div className="w-full max-w-2xl bg-white/5 border border-white/5 rounded-[2.5rem] p-8 min-h-[250px] space-y-6 overflow-y-auto custom-scrollbar shadow-2xl">
                {liveTranscription && (
                  <div className="space-y-1">
                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">User</p>
@@ -420,7 +432,14 @@ const App: React.FC = () => {
           onSpeak={speakText} onStopAudio={stopAudio} onUpdateVolume={(v) => { setVolume(v); if(gainNodeRef.current) gainNodeRef.current.gain.value = v; }}
           isSpeaking={isSpeaking} isPaused={isPaused} onTogglePause={togglePause} volume={volume}
           language={modelSettings.language}
-          onConfirmImage={handleConfirmImage} onCancelImage={(id) => setMessages(prev => prev.filter(m => m.id !== id))}
+          onConfirmImage={(id) => {
+            const msg = messages.find(m => m.id === id);
+            if (msg) {
+              setMessages(prev => prev.filter(m => m.id !== id));
+              handleSendMessage(msg.content, undefined, true);
+            }
+          }} 
+          onCancelImage={(id) => setMessages(prev => prev.filter(m => m.id !== id))}
         />
         
         <InputArea onSendMessage={handleSendMessage} isLoading={isLoading} language={modelSettings.language} />

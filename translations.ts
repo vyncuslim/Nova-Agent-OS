@@ -2,7 +2,7 @@
 export const translations = {
   EN: {
     app_name: "Nova OS Platinum",
-    neural_gateway: "Neural Gateway v3.2",
+    neural_gateway: "Neural Gateway v3.5",
     tab_agents: "Agents",
     tab_memory: "Memory",
     tab_settings: "Settings",
@@ -56,11 +56,14 @@ export const translations = {
     use_maps: "Google Maps Navigation",
     live_api: "Live Real-Time Audio",
     start_live: "Initiate Live Link",
-    live_desc: "Speak freely. The neural core is listening in real-time."
+    live_desc: "Speak freely. The neural core is listening in real-time.",
+    settings_save_history: "Save Chat History",
+    clear_history: "Clear Messages",
+    history_cleared: "Neural history purged."
   },
   ZH: {
     app_name: "星云系统 白金版",
-    neural_gateway: "神经网关 v3.2",
+    neural_gateway: "神经网关 v3.5",
     tab_agents: "智能体",
     tab_memory: "记忆库",
     tab_settings: "设置",
@@ -114,6 +117,9 @@ export const translations = {
     use_maps: "Google 地图导航",
     live_api: "实时音频对话",
     start_live: "启动实时链路",
-    live_desc: "请自由发言。神经核心正在实时聆听。"
+    live_desc: "请自由发言。神经核心正在实时聆听。",
+    settings_save_history: "保存对话记录",
+    clear_history: "清除消息记录",
+    history_cleared: "神经历史已清除。"
   }
 };

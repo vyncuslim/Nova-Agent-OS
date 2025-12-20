@@ -64,6 +64,7 @@ export interface ModelSettings {
   imageSize: ImageSize;
   useSearch: boolean;
   useMaps: boolean;
+  saveHistory: boolean;
 }
 
 export interface GlobalSettings {
