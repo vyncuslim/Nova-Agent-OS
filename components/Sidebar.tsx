@@ -29,13 +29,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [newMemory, setNewMemory] = useState('');
   const [showManifest, setShowManifest] = useState(false);
 
+  // Expanded available models list following SDK best practices
   const availableModels = [
-    'gemini-3-flash-preview',
-    'gemini-3-pro-preview',
-    'gemini-flash-lite-latest',
-    'gemini-2.5-flash-image',
-    'gemini-3-pro-image-preview',
-    'veo-3.1-fast-generate-preview'
+    { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash (Speed)' },
+    { value: 'gemini-3-pro-preview', label: 'Gemini 3 Pro (Reasoning)' },
+    { value: 'gemini-flash-lite-latest', label: 'Flash Lite (Efficiency)' },
+    { value: 'gemini-2.5-flash-image', label: 'Gemini Image v2.5' },
+    { value: 'gemini-3-pro-image-preview', label: 'Gemini Image Pro v3' },
+    { value: 'veo-3.1-fast-generate-preview', label: 'Veo Video Fast' },
+    { value: 'veo-3.1-generate-preview', label: 'Veo Video High-Q' }
   ];
 
   const imageSizes: ImageSize[] = ['1K', '2K', '4K'];
@@ -233,25 +235,33 @@ const Sidebar: React.FC<SidebarProps> = ({
 
             <section className="space-y-5">
               <p className="text-[10px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-3">
-                <span className="w-1.5 h-1.5 bg-violet-500 rounded-full"></span>
+                <span className="w-1.5 h-1.5 bg-violet-500 rounded-full shadow-[0_0_8px_rgba(139,92,246,0.6)]"></span>
                 {t.agent_model_override}
               </p>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {AGENTS.map(a => (
-                  <div key={a.id} className="space-y-1.5">
-                    <label className="text-[10px] text-slate-500 font-black uppercase ml-1 flex justify-between">
-                      {a.name}
-                      <span className="opacity-50 font-mono">CORE</span>
+                  <div key={a.id} className="space-y-1.5 relative group/select">
+                    <label className="text-[10px] text-slate-500 font-black uppercase ml-1 flex justify-between items-center">
+                      <span className="flex items-center gap-2">
+                        <span className="opacity-50">{a.icon}</span>
+                        {a.name}
+                      </span>
+                      <span className="opacity-30 font-mono text-[8px]">UPLINK-0{AGENTS.indexOf(a) + 1}</span>
                     </label>
-                    <select 
-                      value={modelSettings.customModelOverrides[a.id] || a.model}
-                      onChange={(e) => updateModelOverride(a.id, e.target.value)}
-                      className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[11px] text-indigo-300 outline-none focus:border-indigo-500/50 transition-all font-mono appearance-none"
-                    >
-                      {availableModels.map(m => (
-                        <option key={m} value={m} className="bg-slate-900">{m}</option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select 
+                        value={modelSettings.customModelOverrides[a.id] || a.model}
+                        onChange={(e) => updateModelOverride(a.id, e.target.value)}
+                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[11px] text-indigo-300 outline-none focus:border-indigo-500/50 transition-all font-mono appearance-none cursor-pointer pr-10 group-hover/select:border-white/10"
+                      >
+                        {availableModels.map(m => (
+                          <option key={m.value} value={m.value} className="bg-slate-900 text-slate-100">{m.label}</option>
+                        ))}
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-600 transition-colors group-hover/select:text-indigo-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -363,6 +373,43 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Feature Manifest Modal */}
+      {showManifest && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-indigo-500/30 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500"></div>
+            <div className="flex justify-between items-start">
+              <h2 className="text-xl font-black uppercase tracking-tighter text-white">{t.manifest}</h2>
+              <button onClick={() => setShowManifest(false)} className="text-slate-500 hover:text-white text-xl">✕</button>
+            </div>
+            <ul className="space-y-4 text-xs font-medium text-slate-300">
+              {[
+                { icon: '🤖', title: 'Specialized Agents', desc: '6 unique personas for coding, research, creativity, and more.' },
+                { icon: '🧬', title: 'Model Overrides', desc: 'Custom model mapping per agent via settings.' },
+                { icon: '🎨', title: 'Visual Gatekeeper', desc: 'Confirmation protocol for all image generation tasks.' },
+                { icon: '🎙️', title: 'Audio Nexus', desc: 'Full TTS control with Play/Pause/Stop and Volume gain.' },
+                { icon: '📍', title: 'Grounding', desc: 'Integrated real-world search and map verification.' },
+                { icon: '🧠', title: 'Neural Memory', desc: 'Persistent context injected into every neural link.' }
+              ].map((f, i) => (
+                <li key={i} className="flex gap-4 p-3 bg-slate-950/50 border border-white/5 rounded-2xl">
+                  <span className="text-xl">{f.icon}</span>
+                  <div>
+                    <p className="font-bold text-indigo-400 uppercase tracking-widest text-[10px] mb-1">{f.title}</p>
+                    <p className="opacity-70 leading-relaxed">{f.desc}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <button 
+              onClick={() => setShowManifest(false)}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase text-[10px] tracking-widest rounded-xl transition-all"
+            >
+              Acknowledge Protocol
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
