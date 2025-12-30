@@ -10,10 +10,10 @@ import { AGENTS } from './constants';
 import { geminiService } from './services/geminiService';
 import { translations } from './translations';
 
-const STORAGE_KEY = 'nova_chat_v3_5';
-const SETTINGS_KEY = 'nova_settings_v3_5';
-const AGENT_KEY = 'nova_agent_v3_5';
-const AUTH_KEY = 'nova_auth_v3_5';
+const STORAGE_KEY = 'nova_chat_v3_6';
+const SETTINGS_KEY = 'nova_settings_v3_6';
+const AGENT_KEY = 'nova_agent_v3_6';
+const AUTH_KEY = 'nova_auth_v3_6';
 
 function decodeBase64(base64: string): Uint8Array {
   const binaryString = atob(base64);
@@ -96,7 +96,6 @@ const App: React.FC = () => {
     const savedAgentId = localStorage.getItem(AGENT_KEY);
     if (savedUser) try { setUser(JSON.parse(savedUser)); } catch (e) {}
     
-    // Load messages ONLY if saveHistory is enabled
     if (modelSettings.saveHistory) {
       const savedMessages = localStorage.getItem(STORAGE_KEY);
       if (savedMessages) try { setMessages(JSON.parse(savedMessages)); } catch (e) {}
@@ -113,8 +112,6 @@ const App: React.FC = () => {
         () => console.warn("Location access denied")
       );
     }
-
-    console.log("%c NOVA AGENT OS v3.5 PLATINUM ACTIVE ", "background: #4f46e5; color: #fff; font-weight: bold; padding: 4px; border-radius: 4px;");
   }, []);
 
   useEffect(() => {
@@ -235,6 +232,16 @@ const App: React.FC = () => {
       setMessages(prev => [...prev, { id: Date.now().toString(), role: 'assistant', content: "Neural link interrupted. Please check your API key or connection.", timestamp: Date.now() }]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSaveToMemory = (content: string) => {
+    if (content.trim()) {
+      setGlobalSettings(prev => ({
+        ...prev,
+        memories: [...prev.memories, content.trim()]
+      }));
+      alert(t.memory_saved);
     }
   };
 
@@ -440,6 +447,8 @@ const App: React.FC = () => {
             }
           }} 
           onCancelImage={(id) => setMessages(prev => prev.filter(m => m.id !== id))}
+          onSaveToMemory={handleSaveToMemory}
+          memoryCount={globalSettings.memories.length}
         />
         
         <InputArea onSendMessage={handleSendMessage} isLoading={isLoading} language={modelSettings.language} />

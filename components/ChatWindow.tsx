@@ -16,12 +16,14 @@ interface ChatWindowProps {
   language: Language;
   onConfirmImage: (msgId: string) => void;
   onCancelImage: (msgId: string) => void;
+  onSaveToMemory: (content: string) => void;
+  memoryCount: number;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ 
   messages, isLoading, onSpeak, onStopAudio, onUpdateVolume, 
   isSpeaking, isPaused, onTogglePause, volume, language,
-  onConfirmImage, onCancelImage
+  onConfirmImage, onCancelImage, onSaveToMemory, memoryCount
 }) => {
   const t = translations[language];
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -44,6 +46,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20">
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/10 blur-[120px] rounded-full animate-float"></div>
         <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-violet-600/10 blur-[100px] rounded-full animate-float" style={{ animationDelay: '3s' }}></div>
+      </div>
+
+      {/* Memory Status Indicator */}
+      <div className="sticky top-0 z-20 flex justify-center pb-8 pointer-events-none">
+        <div className="glass-panel px-6 py-2 rounded-full border border-indigo-500/20 shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-700">
+          <div className={`w-2 h-2 rounded-full ${memoryCount > 0 ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-slate-600'} animate-pulse`}></div>
+          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+            {memoryCount > 0 ? `${t.memory_active} (${memoryCount} ${t.imprints})` : "Neural Memory Bank Offline"}
+          </span>
+        </div>
       </div>
 
       {messages.length === 0 && (
@@ -136,6 +148,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                     {copiedId === msg.id ? `✨ ${t.copied}` : `📋 ${t.copy}`}
                   </button>
                   
+                  <button 
+                    onClick={() => onSaveToMemory(msg.content)}
+                    className="px-4 py-2 rounded-xl bg-violet-600/10 hover:bg-violet-600 text-violet-400 hover:text-white transition-all text-[10px] uppercase font-black tracking-widest border border-violet-500/20"
+                  >
+                    🧠 {t.save_to_memory}
+                  </button>
+
                   {!isSpeaking ? (
                     <button 
                       onClick={() => onSpeak(msg.content)}

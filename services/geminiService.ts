@@ -2,7 +2,6 @@
 import { GoogleGenAI, GenerateContentResponse, Type, Modality, LiveServerMessage } from "@google/genai";
 import { AgentConfig, GroundingLink, ModelSettings, ImageSize } from "../types";
 
-// Manual base64 decode implementation following SDK guidelines
 function decodeBase64(base64: string): Uint8Array {
   const binaryString = atob(base64);
   const len = binaryString.length;
@@ -13,7 +12,6 @@ function decodeBase64(base64: string): Uint8Array {
   return bytes;
 }
 
-// Manual base64 encode implementation following SDK guidelines
 function encodeBase64(bytes: Uint8Array): string {
   let binary = '';
   const len = bytes.byteLength;
@@ -23,7 +21,6 @@ function encodeBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// Audio decoding for raw PCM bytes returned by Gemini Live/TTS APIs
 async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
   const dataInt16 = new Int16Array(data.buffer);
   const frameCount = dataInt16.length / numChannels;
@@ -62,8 +59,12 @@ export class GeminiService {
       return await this.generateImage(overriddenModel, message, apiKey, settings.imageSize, image);
     }
 
-    const memoryContext = memories.length > 0 ? `\n[MEMORIES]:\n${memories.join('\n')}` : "";
-    const fullSystemInstruction = `${agent.systemInstruction}${memoryContext}`;
+    // Enhanced Memory Injection with explicit instructions for the AI
+    const memoryContext = memories.length > 0 
+      ? `\n\n[NEURAL MEMORY BANK ACTIVE]:\nThe following facts and preferences are saved from previous interactions. Use them to personalize your behavior and answers. If the user asks about their memory or what you know about them, respond based on these imprints:\n- ${memories.join('\n- ')}` 
+      : "\n\n[NEURAL MEMORY BANK]: No persistent imprints detected yet.";
+
+    const fullSystemInstruction = `${agent.systemInstruction}${memoryContext}\n\nYou are part of Nova Agent OS, a high-fidelity interface. Acknowledge and use the Memory Bank to create a continuous experience for the user.`;
     
     const contents: any[] = [...history];
     const currentParts: any[] = [{ text: message }];
@@ -188,7 +189,6 @@ export class GeminiService {
       model: 'gemini-2.5-flash-native-audio-preview-09-2025',
       callbacks,
       config: {
-        // Use string 'AUDIO' to ensure robustness
         responseModalalities: ['AUDIO'],
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName } },
